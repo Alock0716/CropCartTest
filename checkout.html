@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CropCart | Checkout</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link href="./styles/style.css" rel="stylesheet" />
+
+    <!-- Stripe -->
+    <script src="https://js.stripe.com/v3/"></script>
+
+    <!-- Shared config + helpers -->
+    <script src="./scripts/config.js"></script>
+    <script src="./scripts/utils.js"></script>
+
+    <!-- Shared auth + page boot -->
+    <script defer src="./scripts/auth.js"></script>
+    <script defer src="./scripts/page.js"></script>
+
+    <!-- Page logic -->
+    <script defer src="./scripts/checkout.js"></script>
+  </head>
+
+  <body data-page="checkout" class="cc-body">
+    <!-- Navbar (consistent with other pages) -->
+    <nav class="navbar navbar-expand-lg cc-navbar sticky-top">
+      <div class="container-xxl px-3">
+        <a
+          class="navbar-brand d-flex align-items-center gap-2"
+          href="index.html"
+        >
+          <img
+            class="cc-mark"
+            src="./Images/CClogo1.png"
+            alt="Crop Cart Logo IMG"
+          />
+          <span class="fw-bold">CropCart</span>
+        </a>
+
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#ccNav"
+          aria-controls="ccNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="ccNav">
+          <ul class="navbar-nav ms-auto gap-lg-2 align-items-lg-center">
+            <li class="nav-item">
+              <a class="nav-link" href="index.html">Store</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="cart.html">My Cart</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="orders.html">My Orders</a>
+            </li>
+
+            <!-- Auth.js renders into this LI -->
+            <li class="nav-item ms-lg-2" id="authNav"></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-5">
+      <div
+        class="d-flex align-items-end justify-content-between flex-wrap gap-3 mb-4"
+      >
+        <div>
+          <h1 class="h3 fw-bold mb-1">Checkout</h1>
+          <p class="text-muted mb-0">
+            Confirm delivery details, then pay securely.
+          </p>
+        </div>
+        <div id="pageStatus" class="small"></div>
+      </div>
+
+      <div class="row g-4">
+        <!-- LEFT -->
+        <div class="col-lg-7">
+          <!-- Delivery Card -->
+          <div class="cc-card p-4 mb-4">
+            <h2 class="h5 fw-bold mb-3">Delivery information</h2>
+
+            <form id="checkoutForm" class="row g-3">
+              <div class="col-12">
+                <label class="form-label fw-semibold" for="shipAddress"
+                  >Address</label
+                >
+                <input
+                  class="form-control"
+                  id="shipAddress"
+                  autocomplete="street-address"
+                  placeholder="Address"
+                  required
+                />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold" for="shipCity"
+                  >City</label
+                >
+                <input
+                  class="form-control"
+                  id="shipCity"
+                  autocomplete="address-level2"
+                  required
+                />
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label fw-semibold" for="shipState"
+                  >State</label
+                >
+                <input
+                  class="form-control"
+                  id="shipState"
+                  placeholder="State"
+                  autocomplete="address-level1"
+                  required
+                />
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label fw-semibold" for="shipZip">Zip</label>
+                <input
+                  class="form-control"
+                  id="shipZip"
+                  inputmode="numeric"
+                  autocomplete="postal-code"
+                  required
+                />
+              </div>
+
+              <div class="col-12 d-grid">
+                <button
+                  class="btn cc-btn btn-lg"
+                  type="submit"
+                  id="placeOrderBtn"
+                >
+                  Continue to payment
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Payment Card -->
+          <div class="cc-card p-4">
+            <div
+              class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2"
+            >
+              <h2 class="h5 fw-bold mb-0">Payment</h2>
+              <span class="badge text-bg-light border" id="payModeBadge"
+                >Stripe Payment Element</span
+              >
+            </div>
+
+            <div id="paymentWrap" class="d-grid gap-3">
+              <div
+                id="payment-element"
+                class="p-3 border rounded bg-white"
+              ></div>
+
+              <button
+                id="payBtn"
+                class="btn cc-btn btn-lg"
+                disabled
+                type="button"
+              >
+                Pay now
+              </button>
+
+              <div id="payMsg" class="small text-muted"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="col-lg-5">
+          <div class="cc-card p-4">
+            <h2 class="h5 fw-bold mb-3">Order summary</h2>
+
+            <div id="summaryItems" class="vstack gap-2"></div>
+            <hr />
+
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-muted">Subtotal</span>
+              <span id="sumSubtotal">$0.00</span>
+            </div>
+
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-muted">Tax</span>
+              <span id="sumTax">$0.00</span>
+            </div>
+
+            <div class="d-flex justify-content-between fw-bold">
+              <span>Total</span>
+              <span id="sumTotal">$0.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

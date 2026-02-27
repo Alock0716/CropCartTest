@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CropCart | Farmer Portal</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link href="./styles/style.css" rel="stylesheet" />
+
+    <!-- Keep order consistent with index.html: config first, then auth/page, then page-specific JS -->
+    <script src="./scripts/config.js"></script>
+    <script src="./scripts/utils.js"></script>
+    <script defer src="./scripts/auth.js"></script>
+    <script defer src="./scripts/page.js"></script>
+    <script defer src="./scripts/farmer.js"></script>
+  </head>
+
+  <body data-page="farmer" class="cc-body">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg cc-navbar sticky-top">
+      <div class="container-xxl px-3">
+        <a
+          class="navbar-brand d-flex align-items-center gap-2"
+          href="./index.html"
+        >
+          <img
+            class="cc-mark"
+            src="./Images/CClogo1.png"
+            alt="Crop Cart Logo IMG"
+          />
+          <span class="fw-bold">CropCart</span>
+        </a>
+
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#ccNav"
+          aria-controls="ccNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="ccNav">
+          <ul class="navbar-nav ms-auto gap-lg-2">
+            <li class="nav-item">
+              <a class="nav-link" href="./index.html">Store</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="./cart.html">My Cart</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="./farmer.html">Farmer Portal</a>
+            </li>
+
+            <li>
+              <ul class="navbar-nav ms-auto gap-lg-2" id="authNav">
+                <!-- auth.js populates this -->
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-5">
+      <div
+        class="d-flex flex-wrap align-items-end justify-content-left gap-3 mb-4"
+      >
+        <div>
+          <h1 id="farmerPortalTitle" class="h3 fw-bold mb-1">Farmer Portal</h1>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <!-- LEFT COLUMN -->
+        <div class="col-lg-4">
+          <div class="cc-card p-4">
+            <h2 class="h5 fw-bold mb-3">Add a product</h2>
+
+            <form id="addProductForm" class="vstack gap-3">
+              <div>
+                <label class="form-label fw-semibold" for="pName">Name</label>
+                <input
+                  class="form-control"
+                  id="pName"
+                  placeholder="Ribeye Steak (12 oz)"
+                  required
+                />
+              </div>
+
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" for="pPrice"
+                    >Price</label
+                  >
+                  <input
+                    class="form-control"
+                    id="pPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                  />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" for="pQty">Stock</label>
+                  <input
+                    class="form-control"
+                    id="pQty"
+                    type="number"
+                    step="1"
+                    min="0"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="form-label fw-semibold" for="pCategory"
+                  >Category</label
+                >
+                <!-- Use API category slugs as values -->
+                <select class="form-select" id="pCategory" required>
+                  <option value="fruits_vegetables">Fruits & Vegetables</option>
+                  <option value="meat_poultry">Meat & Poultry</option>
+                  <option value="dairy_eggs">Dairy & Eggs</option>
+                  <option value="grains_bakery">Grains & Bakery</option>
+                  <option value="herbs_spices">Herbs & Spices</option>
+                  <option value="honey_preserves">Honey & Preserves</option>
+                  <option value="beverages">Beverages</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="form-label fw-semibold" for="pImage">Photo</label>
+                <input
+                  class="form-control"
+                  id="pImage"
+                  type="file"
+                  accept="image/*"
+                />
+              </div>
+
+              <button class="btn cc-btn" id="addProductBtn" type="submit">
+                Add Product
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="col-lg-8">
+          <div class="cc-card p-4 mb-2">
+            <div
+              class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3"
+            >
+              <h2 class="h5 fw-bold mb-0">Inventory</h2>
+              <div class="d-flex gap-2">
+                <input
+                  class="form-control"
+                  id="invSearch"
+                  placeholder="Search inventory..."
+                  style="max-width: 240px"
+                />
+                <button
+                  class="btn btn-outline-cc"
+                  id="refreshInventoryBtn"
+                  type="button"
+                >
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive cc-scroll-card">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="cc-card p-4 cc-scroll-card">
+            <div
+              class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3"
+            >
+              <h2 class="h5 fw-bold mb-0">Incoming Orders</h2>
+              <button
+                class="btn btn-outline-cc"
+                id="refreshFarmerOrdersBtn"
+                type="button"
+              >
+                Refresh
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th class="text-end">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="farmerOrdersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="cc-card col-md-12 m-2 p-4 cc-scroll-card">
+          <!-- Provider earnings (API-only) 
+          <div id="stripeEarningsCard" class="mt-3"></div>-->
+          <h2 class="h5 fw-bold mb-3">Payout setup</h2>
+          <p class="small text-muted mb-3">
+            Connect Stripe so you can receive payouts for your items.
+          </p>
+          <button
+            class="btn btn-cc w-100 btn-primary"
+            id="connectStripeBtn"
+            type="button"
+          >
+            Connect Stripe (stub)
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Edit Product Modal -->
+    <div
+      class="modal fade"
+      id="editProductModal"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content cc-card">
+          <div class="modal-header border-0">
+            <div>
+              <h5 class="modal-title fw-bold mb-1">Edit product</h5>
+              <p class="text-muted small mb-0">
+                Update details, pricing, stock, and photo.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+
+          <form id="editProductForm">
+            <div class="modal-body pt-0">
+              <!-- hidden product id -->
+              <input type="hidden" id="epId" />
+
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label fw-semibold" for="epName"
+                    >Name</label
+                  >
+                  <input class="form-control" id="epName" required />
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label fw-semibold" for="epDescription"
+                    >Description</label
+                  >
+                  <textarea
+                    class="form-control"
+                    id="epDescription"
+                    rows="3"
+                    placeholder="Optional…"
+                  ></textarea>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold" for="epCategory"
+                    >Category</label
+                  >
+                  <select class="form-select" id="epCategory" required>
+                    <option value="fruits_vegetables">
+                      Fruits &amp; Vegetables
+                    </option>
+                    <option value="meat_poultry">Meat &amp; Poultry</option>
+                    <option value="dairy_eggs">Dairy &amp; Eggs</option>
+                    <option value="grains_bakery">Grains &amp; Bakery</option>
+                    <option value="herbs_spices">Herbs &amp; Spices</option>
+                    <option value="honey_preserves">
+                      Honey &amp; Preserves
+                    </option>
+                    <option value="beverages">Beverages</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <div class="form-text">
+                    Must match the API category codes.
+                  </div>
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label fw-semibold" for="epPrice"
+                    >Price</label
+                  >
+                  <input
+                    class="form-control"
+                    id="epPrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                  />
+                </div>
+
+                <div class="col-md-3">
+                  <label class="form-label fw-semibold" for="epStock"
+                    >Stock</label
+                  >
+                  <input
+                    class="form-control"
+                    id="epStock"
+                    type="number"
+                    step="1"
+                    min="0"
+                    required
+                  />
+                </div>
+
+                <div class="col-12">
+                  <div class="d-flex align-items-center gap-3">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="epIsActive"
+                        checked
+                      />
+                      <label
+                        class="form-check-label fw-semibold"
+                        for="epIsActive"
+                        >Active</label
+                      >
+                    </div>
+
+                    <div class="ms-auto text-end">
+                      <div id="epCurrentPhoto" class="small text-muted"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label fw-semibold" for="epPhoto"
+                    >Replace photo</label
+                  >
+                  <input
+                    class="form-control"
+                    id="epPhoto"
+                    type="file"
+                    accept="image/*"
+                  />
+                  <div class="form-text">
+                    Leave blank to keep the current photo.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer border-0">
+              <div class="me-auto small text-muted" id="epStatus"></div>
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                data-bs-dismiss="modal"
+              >
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-cc" id="epSaveBtn">
+                Save changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <footer class="cc-footer fixed-bottom">
+      <div class="container-xxl px-3 py-4">
+        <div
+          class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2"
+        >
+          <small class="cc-muted">© CropCart • Farm-to-table delivery</small>
+          <small class="cc-muted">Built with Bootstrap</small>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

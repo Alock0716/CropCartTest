@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CropCart | Orders</title>
+
+    <!-- Bootstrap -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Bootstrap Icons (stars, chevrons, etc.) -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Site styles -->
+    <link href="./styles/style.css" rel="stylesheet" />
+
+    <!-- Config + helpers -->
+    <script src="./scripts/config.js"></script>
+    <script src="./scripts/utils.js"></script>
+
+    <!-- Auth + shared boot logic -->
+    <script defer src="./scripts/auth.js"></script>
+    <script defer src="./scripts/page.js"></script>
+
+    <!-- Orders page logic -->
+    <script defer src="./scripts/orders.js"></script>
+  </head>
+
+  <body data-page="orders" class="cc-body">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg cc-navbar sticky-top">
+      <div class="container-xxl px-3">
+        <a
+          class="navbar-brand d-flex align-items-center gap-2"
+          href="index.html"
+        >
+          <img
+            class="cc-mark"
+            src="./Images/CClogo1.png"
+            alt="Crop Cart Logo IMG"
+          />
+          <span class="fw-bold">CropCart</span>
+        </a>
+
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#ccNav"
+          aria-controls="ccNav"
+          aria-expanded="false"
+          aria-label="Toggle navigation"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="ccNav">
+          <ul class="navbar-nav ms-auto gap-lg-2">
+            <li class="nav-item">
+              <a class="nav-link" href="index.html">Store</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="cart.html">My Cart</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="farmer.html">Farmer Portal</a>
+            </li>
+            <li>
+              <ul class="navbar-nav ms-auto gap-lg-2" id="authNav">
+                <!-- JS opulates this -->
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <main class="container py-5">
+      <div class="d-relative justify-content-left">
+        <div>
+          <h1 class="h3 fw-bold">My Orders</h1>
+        </div>
+      </div>
+
+      <div class="d-relative text-end">
+        <button class="btn btn-outline-cc" id="refreshOrdersBtn" type="button">
+          <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>
+          Refresh
+        </button>
+      </div>
+
+      <!-- Summary (filled by JS when /api/orders/history/ is available) -->
+      <div id="ordersSummary" class="row g-3 mb-4" aria-live="polite"></div>
+
+      <!-- Controls -->
+      <div class="p-3 mb-3">
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-lg-5">
+            <label class="form-label mb-1" for="orderSearchInput">Search</label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="bi bi-search" aria-hidden="true"></i
+              ></span>
+              <input
+                id="orderSearchInput"
+                class="form-control"
+                type="search"
+                placeholder="Try: #15, delivered, tomatoes, Green Valley"
+                autocomplete="off"
+              />
+              <button
+                class="btn btn-outline-secondary"
+                id="clearSearchBtn"
+                type="button"
+                title="Clear search"
+              >
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="col-12 col-sm-6 col-lg-3">
+            <label class="form-label mb-1" for="orderStatusFilter"
+              >Filter</label
+            >
+            <select class="form-select" id="orderStatusFilter">
+              <option value="all">All statuses</option>
+              <option value="payment_pending">Payment pending</option>
+              <option value="received">Received</option>
+              <option value="packed">Packed</option>
+              <option value="out_for_delivery">Out for delivery</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-sm-6 col-lg-4">
+            <label class="form-label mb-1" for="orderSortSelect">Sort</label>
+            <select class="form-select" id="orderSortSelect">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="total_desc">Total: high to low</option>
+              <option value="total_asc">Total: low to high</option>
+              <option value="status">Status</option>
+              <option value="favorites">Favorites first</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status line -->
+      <div id="pageStatus" class="small mb-3" aria-live="polite"></div>
+
+      <!-- Orders table -->
+      <div class="cc-card p-0 overflow-hidden">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Order</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Placed</th>
+                <th class="px-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <!-- Filled by orders.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <footer class="cc-footer fixed-bottom">
+      <div class="container-xxl px-3 py-4">
+        <div
+          class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2"
+        >
+          <small class="cc-muted">© CropCart • Farm-to-table delivery</small>
+          <small class="cc-muted">Built with Bootstrap</small>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

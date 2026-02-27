@@ -1,0 +1,456 @@
+/* styles.css (Bootstrap-friendly brand layer) */
+
+:root {
+  /* Brand palette pulled from your logo / flyer vibe */
+  --cc-cream: #f6f3e7;
+  --cc-cream-2: #fbf8ef;
+  --cc-green: #1e5b38;
+  --cc-green-2: #2f7a4d;
+  --cc-ink: #183024;
+  --cc-muted: #5b6a60;
+  --cc-border: rgba(30, 91, 56, 0.18);
+  --cc-shadow: 0 14px 30px rgba(24, 48, 36, 0.1);
+  --cc-radius: 18px;
+}
+
+/* Base */
+.cc-body {
+  background:
+    radial-gradient(
+      1200px 800px at 20% 0%,
+      rgba(47, 122, 77, 0.11),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 700px at 90% 10%,
+      rgba(30, 91, 56, 0.08),
+      transparent 55%
+    ),
+    var(--cc-cream);
+  color: var(--cc-ink);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Arial;
+  min-height: 100vh;
+}
+
+.cc-body2 {
+  background:
+    radial-gradient(
+      1200px 800px at 20% 0%,
+      rgba(47, 122, 77, 0.11),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 700px at 90% 10%,
+      rgba(30, 91, 56, 0.08),
+      transparent 55%
+    ),
+    var(--cc-cream);
+  color: var(--cc-ink);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Arial;
+  min-height: 100vh;
+}
+
+body main {
+  background:
+    radial-gradient(
+      1200px 800px at 20% 0%,
+      rgba(47, 122, 77, 0.11),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 700px at 90% 10%,
+      rgba(30, 91, 56, 0.08),
+      transparent 55%
+    ),
+    var(--cc-cream);
+  color: var(--cc-ink);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Arial;
+}
+
+/* Tiny top strip */
+.cc-top-strip {
+  background: linear-gradient(90deg, var(--cc-green), var(--cc-green-2));
+  color: #fff;
+}
+.cc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-weight: 650;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+.cc-link {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cc-link:hover {
+  opacity: 0.9;
+}
+
+.cc-muted {
+  color: rgba(255, 255, 255, 0.82);
+}
+body .cc-muted {
+  color: var(--cc-muted);
+}
+
+/* Navbar */
+.cc-navbar {
+  background: var(--cc-green-2);
+  border-bottom: 1px solid var(--cc-border);
+  backdrop-filter: blur(10px);
+}
+.navbar-brand span {
+  color: var(--cc-cream-2);
+}
+.cc-navbar .nav-link {
+  color: var(--cc-cream-2);
+  border-radius: 999px;
+  padding: 0.5rem 0.8rem;
+}
+.cc-navbar .nav-link:hover {
+  background: var(--cc-green);
+}
+.cc-navbar .nav-link.active {
+  background: var(--cc-green);
+  font-weight: 700;
+  color: var(--cc-cream-2);
+}
+.cc-navbar .navbar-toggler {
+  border-color: rgba(30, 91, 56, 0.25);
+}
+.cc-navbar .navbar-toggler:focus {
+  box-shadow: 0 0 0 0.2rem rgba(30, 91, 56, 0.15);
+}
+
+/* Brand mark */
+.cc-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 14px;
+  background:
+    radial-gradient(
+      circle at 30% 30%,
+      rgba(255, 255, 255, 0.35),
+      transparent 55%
+    ),
+    linear-gradient(135deg, var(--cc-cream-2), var(--cc-green));
+  box-shadow: 0 10px 22px rgba(30, 91, 56, 0.18);
+}
+
+/* Cards */
+.cc-card {
+  background: rgba(251, 248, 239);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  box-shadow: var(--cc-shadow);
+  padding: 18px;
+}
+
+.cc-card-ns {
+  background: rgba(251, 248, 239);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  padding: 18px;
+  position: relative;
+  left: 30%;
+  max-width: 40%;
+}
+
+.cc-hr {
+  border: none;
+  height: 1px;
+  background: rgba(30, 91, 56, 0.14);
+  margin: 14px 0;
+}
+
+/* Type */
+.cc-h1 {
+  font-size: clamp(30px, 3.4vw, 44px);
+  line-height: 1.05;
+  font-weight: 850;
+}
+.cc-h2 {
+  font-size: 22px;
+  font-weight: 800;
+}
+.cc-sub {
+  color: var(--cc-muted);
+  font-size: 16px;
+}
+.cc-label {
+  color: var(--cc-muted);
+  font-weight: 650;
+}
+
+/* Inputs */
+.cc-input {
+  border-radius: 14px !important;
+  border-color: rgba(30, 91, 56, 0.22) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+.cc-input:focus {
+  border-color: rgba(30, 91, 56, 0.45) !important;
+  box-shadow: 0 0 0 0.2rem rgba(30, 91, 56, 0.13) !important;
+}
+
+/* Buttons */
+.cc-btn {
+  border-radius: 14px;
+  border: 1px solid rgba(30, 91, 56, 0.3);
+  background: linear-gradient(135deg, var(--cc-green), var(--cc-green-2));
+  color: #fff;
+  font-weight: 750;
+}
+.cc-btn:hover {
+  opacity: 0.95;
+  color: #fff;
+}
+
+.cc-btn-outline {
+  border-radius: 14px;
+  border: 1px solid rgba(30, 91, 56, 0.35);
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--cc-ink);
+  font-weight: 750;
+}
+.cc-btn-outline:hover {
+  background: rgba(30, 91, 56, 0.08);
+}
+
+/* Badges */
+.cc-badge {
+  border: 1px solid rgba(30, 91, 56, 0.18) !important;
+  color: var(--cc-ink) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Mini pick list */
+.cc-mini {
+  border-radius: 16px;
+  border: 1px solid rgba(30, 91, 56, 0.14);
+  background: rgba(255, 255, 255, 0.62);
+  padding: 12px;
+}
+.cc-mini-title {
+  font-weight: 800;
+}
+
+/* Product grid */
+.cc-products-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.cc-product-card {
+  border-radius: 18px;
+  border: 1px solid rgba(30, 91, 56, 0.16);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 10px 20px rgba(24, 48, 36, 0.06);
+  overflow: hidden;
+  height: 100%;
+  cursor: default;
+}
+
+.cc-product-meta {
+  color: var(--cc-muted);
+  font-size: 13px;
+}
+.cc-price {
+  font-weight: 900;
+  color: var(--cc-ink);
+}
+
+/* Footer */
+.cc-footer {
+  border-top: 1px solid var(--cc-border);
+  background: rgba(251, 248, 239, 0.75);
+}
+.cc-logo-thumb {
+  width: 60px;
+  height: 70px;
+}
+
+/* Improve Bootstrap “card” spacing inside our card shell */
+#products .row {
+  --bs-gutter-x: 1rem;
+  --bs-gutter-y: 1rem;
+}
+
+.cc-select {
+  border-radius: 12px;
+  border: 2px solid var(--cc-primary);
+  padding: 10px 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.cc-select:focus {
+  border-color: var(--cc-accent);
+  box-shadow: 0 0 0 3px rgba(0, 150, 80, 0.2);
+}
+
+.cc-select-wrapper label {
+  color: var(--cc-dark);
+}
+
+.cc-select option {
+  padding: 10px;
+  font-weight: 500;
+}
+.cc-select optgroup {
+  font-weight: 700;
+}
+
+.favorite-farm-btn {
+  position: relative;
+
+  background: transparent;
+  border: none;
+
+  font-size: 1.4rem;
+  color: #000; /* black outline */
+
+  cursor: pointer;
+  padding: 0;
+  z-index: 999;
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease;
+}
+
+.favorite-farm-btn:hover {
+  transform: scale(1.15);
+}
+
+/* Filled state */
+.favorite-farm-btn.active i {
+  color: #f5b301; /* gold */
+}
+
+.favorite-farm-btn-2 {
+  position: relative;
+  right: 45px;
+
+  background: transparent;
+  border: none;
+
+  font-size: 1.4rem;
+  color: #000; /* black outline */
+
+  cursor: pointer;
+  padding: 0;
+
+  transition:
+    transform 0.15s ease,
+    color 0.15s ease;
+}
+
+.favorite-farm-btn-2:hover {
+  transform: scale(1.15);
+}
+
+/* Filled state */
+.favorite-farm-btn-2.active i {
+  color: #f5b301; /* gold */
+}
+
+/* Product image support (photo_url) */
+.cc-product-img {
+  position: relative;
+  background:
+    radial-gradient(
+      600px 250px at 20% 10%,
+      rgba(47, 122, 77, 0.18),
+      transparent 60%
+    ),
+    linear-gradient(135deg, rgba(30, 91, 56, 0.09), rgba(47, 122, 77, 0.06)),
+    var(--cc-cream-2);
+  z-index: 0;
+  padding: 0;
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.cc-product-photo {
+  width: 100%;
+  height: 150px;
+  display: flex;
+  object-fit: contain;
+}
+
+.cc-product-initial {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+}
+
+.cc-product-img--fallback {
+  height: 150px;
+  background:
+    radial-gradient(600px 250px at 20% 10%, rgba(47, 122, 77, 0.18), transparent 60%),
+    linear-gradient(135deg, rgba(30, 91, 56, 0.09), rgba(47, 122, 77, 0.06)),
+    var(--cc-cream-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Layout helpers (no inline styles)                                           */
+/* -------------------------------------------------------------------------- */
+
+.cc-maxw-460 {
+  max-width: 460px;
+}
+
+.cc-maxw-520 {
+  max-width: 520px;
+}
+
+.cc-maxw-720 {
+  max-width: 720px;
+}
+
+/* Table column sizing helpers */
+.cc-col-qty {
+  width: 160px;
+}
+
+/* Farmer portal inventory search input */
+.cc-inv-search {
+  max-width: 240px;
+}
