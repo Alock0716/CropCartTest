@@ -1,40 +1,47 @@
 /**
- * utils.js — CropCart shared front-end helpers
+ * ============================================================================
+ * utils.js — CropCart shared front-end helpers (SOURCE-BASED REGEN)
+ * ----------------------------------------------------------------------------
+ * IMPORTANT:
+ * - Logic/behavior preserved from project source file.
+ * - Changes are ORGANIZATION + COMMENTS only.
  *
- * Purpose
- * - Provide ONE place for common helpers used across pages (store/cart/orders/checkout/auth/etc.)
- * - Prevent duplicated variables/functions, drift between pages, and inconsistent behavior.
+ * Purpose:
+ * - Centralized helpers: config, DOM shortcuts, formatting, auth, API fetch,
+ *   and Guest Cart caching (pre-login cart).
  *
- * Usage
- * - Make sure pages load scripts in this order:
+ * Usage order (in HTML):
  *   1) config.js
  *   2) utils.js
- *   3) auth.js / page.js / store.js / other page scripts
+ *   3) auth.js / page.js / other page scripts
  *
- * Global
+ * Global:
  * - Exposes window.CC (CropCart namespace)
+ * ============================================================================
  */
 
 (function initCropCartUtils() {
   "use strict";
 
-  // Avoid redefining CC if this file is accidentally loaded twice.
+  // Prevent redefining CC if this file is loaded more than once.
   if (window.CC && window.CC.__ready) return;
+
+  /* ==========================================================================
+   * CONFIG HELPERS
+   * ========================================================================== */
 
   /**
    * Read the global config object (defined in config.js).
-   *
-   * @returns {object} The config object or an empty object.
+   * @returns {object}
    */
   function getConfig() {
     return window.__CROPCART_CONFIG__ || {};
   }
 
   /**
-   * Safely read a config key.
-   *
-   * @param {string} key - Key to read from config
-   * @param {any} [fallback=null] - Fallback if missing
+   * Safely read a config key with fallback.
+   * @param {string} key
+   * @param {any} [fallback=null]
    * @returns {any}
    */
   function getConfigValue(key, fallback = null) {
@@ -45,7 +52,6 @@
 
   /**
    * Normalize a base URL (remove trailing slashes).
-   *
    * @param {string} url
    * @returns {string}
    */
@@ -57,9 +63,7 @@
 
   /**
    * Returns the API base URL (example: "http://3.142.227.162/api").
-   *
    * Supports older keys and creates a consistent source of truth.
-   *
    * @returns {string}
    */
   function apiBaseUrl() {
@@ -75,9 +79,10 @@
   /**
    * Build a full API URL from a path.
    *
-   * @example buildApiUrl("/products/") -> "http://.api/products/"
+   * NOTE: This preserves your existing special-case behavior for "/farms/".
    *
-   * @param {string} path - Can be with or without leading slash
+   * @example buildApiUrl("/products/") -> "http://.../api/products/"
+   * @param {string} path
    * @returns {string}
    */
   function buildApiUrl(path) {
@@ -97,9 +102,12 @@
     return `${base}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
   }
 
+  /* ==========================================================================
+   * DOM HELPERS
+   * ========================================================================== */
+
   /**
    * Run a function once DOM is ready.
-   *
    * @param {Function} fn
    */
   function onReady(fn) {
@@ -111,18 +119,29 @@
   }
 
   /**
-   * Query selector helpers.
+   * Query selector helpers (kept because other project files may rely on them).
+   * @param {string} sel
+   * @param {ParentNode} [root=document]
    */
   function qs(sel, root = document) {
     return root.querySelector(sel);
   }
+  /**
+   * Query selector all helper.
+   * @param {string} sel
+   * @param {ParentNode} [root=document]
+   * @returns {HTMLElement[]}
+   */
   function qsa(sel, root = document) {
     return Array.from(root.querySelectorAll(sel));
   }
 
+  /* ==========================================================================
+   * TEXT / FORMATTING HELPERS
+   * ========================================================================== */
+
   /**
    * Escape HTML for safe insertion into innerHTML.
-   *
    * @param {any} input
    * @returns {string}
    */
@@ -137,7 +156,6 @@
 
   /**
    * Format a number as USD (default). If input is invalid, returns "—".
-   *
    * @param {any} value
    * @param {string} [currency="USD"]
    * @returns {string}
@@ -160,9 +178,10 @@
 
   /**
    * Set a status message with a simple styling convention.
+   * NOTE: This keeps your existing class reset behavior.
    *
-   * @param {HTMLElement|null} el - The element that shows status
-   * @param {string} message - The text to show
+   * @param {HTMLElement|null} el
+   * @param {string} message
    * @param {"muted"|"success"|"danger"|"warning"|"info"} [kind="muted"]
    */
   function setStatus(el, message, kind = "muted") {
@@ -172,8 +191,26 @@
   }
 
   /**
+   * Format DRF-style field errors (or similar) into a single readable line.
+   * @param {any} obj
+   * @returns {string}
+   */
+  function formatFieldErrors(obj) {
+    if (!obj || typeof obj !== "object") return "";
+    const parts = [];
+    for (const [key, value] of Object.entries(obj)) {
+      if (Array.isArray(value)) parts.push(`${key}: ${value.join(" ")}`);
+      else if (typeof value === "string") parts.push(`${key}: ${value}`);
+    }
+    return parts.join(" • ");
+  }
+
+  /* ==========================================================================
+   * NETWORK HELPERS
+   * ========================================================================== */
+
+  /**
    * Read a fetch() response as text + attempt JSON parsing.
-   *
    * @param {Response} res
    * @returns {Promise<{ok:boolean,status:number,data:any,raw:string}>}
    */
@@ -189,91 +226,15 @@
   }
 
   /**
-   * Format DRF-style field errors (or similar) into a single readable line.
+   * Fetch wrapper:
+   * - Builds full URL via buildApiUrl()
+   * - Adds Accept header + auth header
+   * - Allows `options.json` shorthand for JSON requests
    *
-   * @param {any} obj
-   * @returns {string}
+   * @param {string} urlOrPath
+   * @param {object} options
+   * @returns {Promise<Response>}
    */
-  function formatFieldErrors(obj) {
-    if (!obj || typeof obj !== "object") return "";
-    const parts = [];
-    for (const [key, value] of Object.entries(obj)) {
-      if (Array.isArray(value)) parts.push(`${key}: ${value.join(" ")}`);
-      else if (typeof value === "string") parts.push(`${key}: ${value}`);
-    }
-    return parts.join(" • ");
-  }
-
-  // -------------------------
-  // Auth helpers
-  // -------------------------
-
-  const AUTH_KEY = "cc_auth";
-  const FARMER_AUTH_KEY = "cc_farmer_auth";
-  const RETURN_TO_KEY = "cc_returnTo";
-
-  function getAuth() {
-    const sessionRaw = sessionStorage.getItem(AUTH_KEY);
-    const localRaw = localStorage.getItem(AUTH_KEY);
-    try {
-      return JSON.parse(sessionRaw || localRaw || "null");
-    } catch {
-      return null;
-    }
-  }
-
-  function saveAuth(data, remember) {
-    const access = data?.access || null;
-    const refresh = data?.refresh || null;
-    if (!access) return;
-
-    const payload = {
-      access,
-      refresh,
-      user: data?.user || null,
-      savedAt: new Date().toISOString(),
-    };
-
-    const store = remember ? localStorage : sessionStorage;
-    store.setItem(AUTH_KEY, JSON.stringify(payload));
-  }
-
-  function clearAuth() {
-    sessionStorage.removeItem(AUTH_KEY);
-    localStorage.removeItem(AUTH_KEY);
-  }
-
-  function isLoggedIn() {
-    return !!getAuth()?.access;
-  }
-
-  function authHeader() {
-    const access = getAuth()?.access;
-    if (!access) return {};
-    return { Authorization: `Bearer ${access}` };
-  }
-
-  function logout(redirectTo = "index.html") {
-    clearAuth();
-    sessionStorage.removeItem(RETURN_TO_KEY);
-    window.location.href = redirectTo;
-  }
-
-  function saveReturnToCurrentPage() {
-    const filename = window.location.pathname.split("/").pop() || "index.html";
-    sessionStorage.setItem(RETURN_TO_KEY, filename);
-  }
-
-  function consumeReturnTo(fallback = "index.html") {
-    const v = sessionStorage.getItem(RETURN_TO_KEY);
-    sessionStorage.removeItem(RETURN_TO_KEY);
-    return v || fallback;
-  }
-
-  // -------------------------
-  // API fetch helpers
-  // -------------------------
-
   async function apiFetch(urlOrPath, options = {}) {
     const url = buildApiUrl(urlOrPath);
     const init = { ...options };
@@ -301,17 +262,130 @@
     return fetch(url, init);
   }
 
+  /**
+   * Request wrapper:
+   * - Calls apiFetch and returns parsed response object.
+   * @param {string} urlOrPath
+   * @param {object} options
+   * @returns {Promise<{ok:boolean,status:number,data:any,raw:string}>}
+   */
   async function apiRequest(urlOrPath, options = {}) {
     const res = await apiFetch(urlOrPath, options);
     return readResponse(res);
   }
 
-  // -------------------------
-  // Guest cart cache (product snapshot + qty)
-  // -------------------------
+  /* ==========================================================================
+   * AUTH HELPERS
+   * ========================================================================== */
+
+  const AUTH_KEY = "cc_auth";
+  const FARMER_AUTH_KEY = "cc_farmer_auth";
+  const RETURN_TO_KEY = "cc_returnTo";
+
+  /**
+   * Read auth object from sessionStorage (preferred) or localStorage.
+   * @returns {object|null}
+   */
+  function getAuth() {
+    const sessionRaw = sessionStorage.getItem(AUTH_KEY);
+    const localRaw = localStorage.getItem(AUTH_KEY);
+    try {
+      return JSON.parse(sessionRaw || localRaw || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Save auth tokens and user in either sessionStorage or localStorage.
+   * Preserves original access/refresh storage design.
+   *
+   * @param {object} data
+   * @param {boolean} remember
+   */
+  function saveAuth(data, remember) {
+    const access = data?.access || null;
+    const refresh = data?.refresh || null;
+    if (!access) return;
+
+    const payload = {
+      access,
+      refresh,
+      user: data?.user || null,
+      savedAt: new Date().toISOString(),
+    };
+
+    const store = remember ? localStorage : sessionStorage;
+    store.setItem(AUTH_KEY, JSON.stringify(payload));
+  }
+
+  /**
+   * Clear auth storage.
+   */
+  function clearAuth() {
+    sessionStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(AUTH_KEY);
+  }
+
+  /**
+   * True if access token exists.
+   * @returns {boolean}
+   */
+  function isLoggedIn() {
+    return !!getAuth()?.access;
+  }
+
+  /**
+   * Return Authorization header map (Bearer token), or empty map.
+   * @returns {object}
+   */
+  function authHeader() {
+    const access = getAuth()?.access;
+    if (!access) return {};
+    return { Authorization: `Bearer ${access}` };
+  }
+
+  /**
+   * Clear auth and redirect.
+   * @param {string} [redirectTo="index.html"]
+   */
+  function logout(redirectTo = "index.html") {
+    clearAuth();
+    sessionStorage.removeItem(RETURN_TO_KEY);
+    window.location.href = redirectTo;
+  }
+
+  /**
+   * Save filename of current page for redirect after login.
+   */
+  function saveReturnToCurrentPage() {
+    const filename = window.location.pathname.split("/").pop() || "index.html";
+    sessionStorage.setItem(RETURN_TO_KEY, filename);
+  }
+
+  /**
+   * Read and clear return-to value.
+   * @param {string} [fallback="index.html"]
+   * @returns {string}
+   */
+  function consumeReturnTo(fallback = "index.html") {
+    const v = sessionStorage.getItem(RETURN_TO_KEY);
+    sessionStorage.removeItem(RETURN_TO_KEY);
+    return v || fallback;
+  }
+
+  /* ==========================================================================
+   * GUEST CART CACHE (PRE-LOGIN CART)
+   * ========================================================================== */
+
   const GUEST_CART_KEY = "cc_guest_cart";
 
-  /** Safely parse JSON from storage, return fallback if invalid */
+  /**
+   * Safely parse JSON from storage.
+   * @param {string} raw
+   * @param {any} fallback
+   * @returns {any}
+   */
   function safeJsonParse(raw, fallback) {
     try {
       return JSON.parse(raw);
@@ -321,22 +395,28 @@
   }
 
   /**
-   * Minimal product snapshot we cache for guest cart display.
+   * Minimal product snapshot for guest cart display.
    * Keep it small (localStorage is limited).
+   *
+   * @param {object} rawProduct
+   * @returns {{id:number,name:string,price:number,unit:string,photo_url:string,farm_name:string}}
    */
   function toGuestProductSnapshot(rawProduct) {
     const p = rawProduct || {};
     return {
       id: Number(p.id ?? p.product_id ?? 0),
       name: String(p.name ?? p.product_name ?? "").trim(),
-      price: Number(p.price ?? p.unit_price ?? 0), // number (not formatted)
-      unit: String(p.unit ?? p.unit_name ?? "").trim(), // "lb", "each", etc
+      price: Number(p.price ?? p.unit_price ?? 0),
+      unit: String(p.unit ?? p.unit_name ?? "").trim(),
       photo_url: String(p.photo_url ?? "").trim(),
       farm_name: String(p.farm_name ?? p.farm ?? "").trim(),
     };
   }
 
-  /** Read guest cart from localStorage and normalize structure */
+  /**
+   * Read guest cart and normalize structure.
+   * @returns {{items: Record<string,{qty:number,product:any}>, updatedAt: string|null}}
+   */
   function getGuestCart() {
     const raw = localStorage.getItem(GUEST_CART_KEY);
     const data = safeJsonParse(raw || "null", null);
@@ -353,7 +433,6 @@
       if (qty <= 0) continue;
 
       const product = toGuestProductSnapshot(v?.product || {});
-      // Ensure id matches key (best effort)
       if (!product.id) product.id = Number(productId);
 
       normalized[productId] = { qty, product };
@@ -365,7 +444,10 @@
     };
   }
 
-  /** Persist a guest cart back to localStorage */
+  /**
+   * Persist guest cart back to localStorage and emit event.
+   * @param {object} cart
+   */
   function setGuestCart(cart) {
     const payload = {
       items: cart?.items && typeof cart.items === "object" ? cart.items : {},
@@ -377,7 +459,9 @@
     );
   }
 
-  /** Clear guest cart entirely */
+  /**
+   * Clear guest cart entirely and emit event.
+   */
   function clearGuestCart() {
     localStorage.removeItem(GUEST_CART_KEY);
     document.dispatchEvent(
@@ -388,7 +472,10 @@
   /**
    * Add item to guest cart.
    * - If item exists: increments qty
-   * - Always refreshes cached product snapshot (so it stays current)
+   * - Refreshes cached snapshot
+   *
+   * @param {object} rawProduct
+   * @param {number} [qtyToAdd=1]
    */
   function addGuestItem(rawProduct, qtyToAdd = 1) {
     const snap = toGuestProductSnapshot(rawProduct);
@@ -407,7 +494,11 @@
     setGuestCart(cart);
   }
 
-  /** Set exact quantity for a guest cart item (0 removes) */
+  /**
+   * Set exact quantity for a guest cart item (0 removes).
+   * @param {string|number} productId
+   * @param {number} nextQty
+   */
   function setGuestItemQty(productId, nextQty) {
     const id = String(productId || "").trim();
     if (!id) return;
@@ -424,12 +515,18 @@
     setGuestCart(cart);
   }
 
-  /** Remove a guest item entirely */
+  /**
+   * Remove a guest item entirely.
+   * @param {string|number} productId
+   */
   function removeGuestItem(productId) {
     setGuestItemQty(productId, 0);
   }
 
-  /** Get guest cart entries as an array for rendering */
+  /**
+   * Get guest cart entries as an array for rendering.
+   * @returns {{qty:number,product:any}[]}
+   */
   function listGuestItems() {
     const cart = getGuestCart();
     return Object.values(cart.items).map((x) => ({
@@ -438,7 +535,10 @@
     }));
   }
 
-  /** Calculate guest cart subtotal (price * qty) */
+  /**
+   * Calculate guest cart subtotal (price * qty).
+   * @returns {number}
+   */
   function guestSubtotal() {
     const items = listGuestItems();
     return items.reduce((sum, row) => {
@@ -451,6 +551,8 @@
   /**
    * Sync guest cart into authenticated DB cart.
    * Uses POST /api/cart/add/ per item, then clears cache.
+   *
+   * @returns {Promise<{synced:number,attempted:number,unauthorized?:boolean}>}
    */
   async function syncGuestCartToServer() {
     if (!isLoggedIn()) return { synced: 0, attempted: 0 };
@@ -479,10 +581,14 @@
     return { synced, attempted: entries.length };
   }
 
+  /* ==========================================================================
+   * PUBLIC NAMESPACE
+   * ========================================================================== */
+
   window.CC = {
     __ready: true,
 
-    //Guest Cart Caching
+    // Guest Cart Caching
     cartCache: {
       GUEST_CART_KEY,
       getGuestCart,

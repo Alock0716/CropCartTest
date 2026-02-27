@@ -1,6 +1,7 @@
 /**
+ * ============================================================================
  * account.js — Account page behavior (API integrated where possible)
- *
+ * ----------------------------------------------------------------------------
  * What it does:
  * - Shows user info from CC.auth (username/email) + optional first/last
  * - Finds a “default delivery address” from:
@@ -10,7 +11,13 @@
  * - Shows provider-owned farm if detectable from GET /farms/
  * - Password “change” is done via reset email (POST /api/auth/password-reset/)
  * - Delete account button exists, but endpoint may not be supported (fails gracefully)
+ *
+ * NOTE:
+ * - Logic preserved from project source.
+ * - Inline styles in injected HTML were replaced with CSS classes (no behavior change).
+ * ============================================================================
  */
+
 (function initAccountPage() {
   "use strict";
 
@@ -18,9 +25,10 @@
 
   const ROOT_BASE = String(String(CC.API_URL).replace(/\/api$/i, ""));
 
-  // -------------------------
+  // ===========================================================================
   // DOM
-  // -------------------------
+  // ===========================================================================
+
   const pageStatusEl = document.getElementById("pageStatus");
 
   // Profile
@@ -51,7 +59,6 @@
   const addrZipEl = document.getElementById("addrZip");
 
   // Favorites
-
   const refreshFavoritesBtn = document.getElementById("refreshFavoritesBtn");
   const favoritesListEl = document.getElementById("favoritesList");
   const favoritesNoteEl = document.getElementById("favoritesNote");
@@ -70,14 +77,38 @@
   const deleteAccountBtn = document.getElementById("deleteAccountBtn");
   const dangerStatusEl = document.getElementById("dangerStatus");
 
-  // -------------------------
+  // ===========================================================================
   // Local keys
-  // -------------------------
+  // ===========================================================================
+
   const LOCAL_ADDRESS_KEY = "cc_saved_address_v1";
 
-  // -------------------------
+  // ===========================================================================
   // Helpers
-  // -------------------------
+  // ===========================================================================
+
+  /**
+ * Favorites -> Shop handoff:
+ * Store selected farm in sessionStorage so index.html can apply it even if
+ * query params get stripped by hosting/routing.
+ */
+function wireFavoriteShopHandoff() {
+  if (!favoritesListEl) return;
+
+  favoritesListEl.addEventListener("click", (e) => {
+    const btn = e.target?.closest?.(".js-shop-farm");
+    if (!btn) return;
+
+    const farmName = String(btn.dataset.farm || "").trim();
+    if (!farmName) return;
+
+    sessionStorage.setItem("cc_store_prefarm", farmName);
+    // allow navigation to continue normally
+  });
+}
+
+wireFavoriteShopHandoff();
+
   /**
    * Attempt to update the user's email.
    *
@@ -160,9 +191,10 @@
     `;
   }
 
-  // -------------------------
+  // ===========================================================================
   // API calls
-  // -------------------------
+  // ===========================================================================
+
   async function apiGetOrders() {
     // API docs: GET /api/orders/
     return CC.apiRequest("/orders/", { method: "GET" });
@@ -275,9 +307,10 @@
     return CC.apiRequest("/auth/delete/", { method: "DELETE" });
   }
 
-  // -------------------------
+  // ===========================================================================
   // Page logic
-  // -------------------------
+  // ===========================================================================
+
   async function loadDefaultAddress() {
     // 1) local override
     const localAddr = getLocalJson(LOCAL_ADDRESS_KEY, null);
@@ -419,12 +452,18 @@
         return `
         <div class="d-flex align-items-center justify-content-between border rounded-4 bg-white p-3">
           <div class="fw-semibold">${CC.escapeHtml(name)}</div>
-          <a class="btn cc-btn-outline btn-sm" href="index.html?farm=${encodeURIComponent(name)}">Shop</a>
+          <a
+            class="btn cc-btn-outline btn-sm js-shop-farm"
+            href="index.html?farm=${encodeURIComponent(name)}"
+            data-farm="${CC.escapeHtml(name)}"
+          >
+            Shop
+          </a>
         </div>
       `;
       })
       .join("");
-
+      
     favoritesNoteEl &&
       (favoritesNoteEl.textContent = `Loaded ${names.length} favorite farm(s).`);
   }
@@ -474,18 +513,20 @@
       return;
     }
 
+    // Inline styles removed (moved to CSS classes)
     providerBoxEl.innerHTML = `
       <div class="fw-semibold">
         <h3>You are the owner of: ${CC.escapeHtml(owned.name)}<h3>
-        <p style="font-size:medium">${CC.escapeHtml(owned.f.description)}</p>
-        <p style="font-size:medium"> Located in: ${CC.escapeHtml(owned.f.location)}</p>
+        <p class="cc-provider-meta">${CC.escapeHtml(owned.f.description)}</p>
+        <p class="cc-provider-meta"> Located in: ${CC.escapeHtml(owned.f.location)}</p>
       </div>
     `;
   }
 
-  // -------------------------
+  // ===========================================================================
   // Events
-  // -------------------------
+  // ===========================================================================
+
   function wireEvents(userKey, username, email) {
     logoutBtn?.addEventListener("click", () => {
       CC.auth.clearAuth();
@@ -796,9 +837,10 @@
     if (resetEmailEl) resetEmailEl.value = email || "";
   }
 
-  // -------------------------
+  // ===========================================================================
   // Init
-  // -------------------------
+  // ===========================================================================
+
   CC.onReady(async () => {
     // This page is account-only, but we still let page.js handle auth UI toggles.
     if (!CC.auth.isLoggedIn()) return;

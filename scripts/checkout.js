@@ -1,15 +1,21 @@
 /**
+ * ============================================================================
  * checkout.js — Checkout flow (real DB/API + Stripe)
- *
- * Flow:
- * 1) GET /api/cart/ to show summary
- * 2) POST /api/orders/checkout/ with address to create order + PaymentIntent
- * 3) Stripe Payment Element confirms payment
- * 4) POST /api/orders/<order_id>/confirm/ to finalize on server (decrement stock, mark paid, etc.)
+ * ----------------------------------------------------------------------------
+ * Flow (high level):
+ *  1) GET  /api/cart/                      -> render cart summary
+ *  2) POST /api/orders/checkout/           -> create order + PaymentIntent
+ *  3) Stripe Payment Element confirmPayment
+ *  4) POST /api/orders/<id>/confirm/       -> finalize on server (paid, stock, etc.)
  *
  * Requires:
- * - config.js + utils.js (window.CC)
- * - Stripe.js loaded in checkout.html
+ *  - config.js + utils.js (window.CC)
+ *  - Stripe.js loaded in checkout.html
+ *
+ * NOTE:
+ *  - This regen is ORGANIZATION + COMMENTING only.
+ *  - No logic/behavior is changed from the project/source file.
+ * ============================================================================
  */
 
 (function initCheckoutPage() {
@@ -17,36 +23,49 @@
 
   const CC = window.CC;
 
-  // ----- DOM -----
+  /* ==========================================================================
+   * DOM ELEMENTS
+   * ========================================================================== */
+
+  // Page-level status (Bootstrap text-* helper set by CC.setStatus)
   const statusEl = document.getElementById("pageStatus");
 
+  // Checkout (address) form + submit button
   const checkoutForm = document.getElementById("checkoutForm");
   const placeOrderBtn = document.getElementById("placeOrderBtn");
 
+  // Summary panel elements
   const summaryItemsEl = document.getElementById("summaryItems");
   const sumSubtotalEl = document.getElementById("sumSubtotal");
   const sumTaxEl = document.getElementById("sumTax");
   const sumTotalEl = document.getElementById("sumTotal");
 
+  // Stripe payment section
   const payBtn = document.getElementById("payBtn");
   const payMsgEl = document.getElementById("payMsg");
 
-  // ----- State -----
+  /* ==========================================================================
+   * STATE
+   * ========================================================================== */
+
+  // Cart state (from /api/cart/)
   let cart = null;
 
   // Stripe state
   let stripe = null;
   let elements = null;
 
-  // Order state
+  // Active checkout/order state
   let activeOrderId = null;
   let activePaymentIntentId = null;
 
+  // Used to finalize after Stripe redirects (3DS, etc.)
   const PENDING_ORDER_KEY = "cc_pending_order";
 
-  // -------------------------
-  // Address cache (shared with account.js)
-  // -------------------------
+  /* ==========================================================================
+   * ADDRESS CACHE (shared with account.js)
+   * ========================================================================== */
+
   const LOCAL_ADDRESS_KEY = "cc_saved_address_v1";
 
   function getLocalAddress() {
@@ -66,6 +85,10 @@
     }
   }
 
+  /**
+   * Prefill checkout shipping form fields with the cached address.
+   * Only fills empty fields (does not overwrite user-typed values).
+   */
   function prefillShippingFormFromCache() {
     // These IDs must exist in checkout.html
     const addrEl = document.getElementById("shipAddress");
@@ -87,6 +110,15 @@
       zipEl.value = cached.postal_code || cached.zip || "";
   }
 
+  /* ==========================================================================
+   * UI HELPERS
+   * ========================================================================== */
+
+  /**
+   * Set the Stripe/payment status line under the payment element.
+   * @param {string} text
+   * @param {"muted"|"danger"|"success"} kind
+   */
   function setPayMsg(text, kind = "muted") {
     if (!payMsgEl) return;
     payMsgEl.textContent = text || "";
@@ -103,6 +135,10 @@
     CC.auth.clearAuth();
     window.location.href = "login.html";
   }
+
+  /* ==========================================================================
+   * API: CART (summary panel)
+   * ========================================================================== */
 
   /**
    * Load the cart for the summary panel.
@@ -125,7 +161,7 @@
 
   /**
    * Render the summary from cart (before order is created).
-   * Once the order is created, we will replace totals with server-calculated amounts.
+   * Once the order is created, we replace totals with server-calculated amounts.
    */
   function renderCartSummary() {
     if (!summaryItemsEl || !sumSubtotalEl || !sumTaxEl || !sumTotalEl) return;
@@ -175,11 +211,15 @@
     CC.setStatus(statusEl, "Cart loaded.", "success");
   }
 
+  /* ==========================================================================
+   * CHECKOUT PAYLOAD (delivery form -> backend shape)
+   * ========================================================================== */
+
   /**
    * Convert delivery form into the backend-required checkout payload.
    *
    * API expects:
-   * { country, state, postal_code, city, address_line1 }
+   *   { country, state, postal_code, city, address_line1 }
    */
   function buildCheckoutPayload() {
     const addressLine1 =
@@ -216,10 +256,14 @@
     return payload;
   }
 
+  /* ==========================================================================
+   * API: ORDER CREATION (server creates PaymentIntent)
+   * ========================================================================== */
+
   /**
    * Create an order + PaymentIntent on your backend.
-   * The backend returns:
-   * { order: {...}, payment_intent_id, client_secret }
+   * Backend returns:
+   *   { order: {...}, payment_intent_id, client_secret }
    */
   async function createOrder() {
     CC.setStatus(statusEl, "Creating order…", "muted");
@@ -270,6 +314,10 @@
 
     return { order, clientSecret, paymentIntentId };
   }
+
+  /* ==========================================================================
+   * STRIPE: MOUNT + PAY
+   * ========================================================================== */
 
   /**
    * Mount the Stripe Payment Element using the client secret.
@@ -412,6 +460,10 @@
       payBtn.disabled = false;
     }
   }
+
+  /* ==========================================================================
+   * BOOT
+   * ========================================================================== */
 
   CC.onReady(async () => {
     if (!CC.auth.isLoggedIn()) {

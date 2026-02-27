@@ -18,7 +18,10 @@
 
   const CC = window.CC;
 
-  // ----- DOM elements used on this page -----
+  // ===========================================================================
+  // DOM ELEMENTS
+  // ===========================================================================
+
   const tableBodyEl = document.getElementById("cartTableBody");
   const subtotalEl = document.getElementById("cartSubtotal");
   const totalEl = document.getElementById("cartTotal");
@@ -27,19 +30,30 @@
   const clearBtn = document.getElementById("clearCartBtn");
   const goCheckoutBtn = document.getElementById("goCheckoutBtn");
 
-  // ----- State: the cart returned by API -----
+  // ===========================================================================
+  // STATE
+  // ===========================================================================
+
   // Example shape (from API docs):
   // { id, user, items: [{ id, product: { id, name, price }, quantity, subtotal }], total }
   let cart = null;
 
+  // ===========================================================================
+  // AUTH / ERROR HANDLING
+  // ===========================================================================
+
   /**
-   * If the token exists but the API says 401, we clear auth and refresh
+   * If the token exists but the API says 401, clear auth and refresh
    * so the page flips back to logged-out view cleanly.
    */
   function handleUnauthorized() {
     CC.auth.clearAuth();
     window.location.reload();
   }
+
+  // ===========================================================================
+  // API
+  // ===========================================================================
 
   /**
    * Load the current user's cart from the backend.
@@ -60,10 +74,18 @@
     return cart;
   }
 
+  // ===========================================================================
+  // LOCAL HELPERS (kept as in source)
+  // ===========================================================================
+
   function formatMoney(n) {
     const v = Number(n) || 0;
     return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
   }
+
+  // ===========================================================================
+  // GUEST CART RENDER (pre-login cart)
+  // ===========================================================================
 
   function renderGuestCart() {
     const items = CC.cartCache.listGuestItems();
@@ -88,8 +110,8 @@
     const rowsHtml = items
       .map(({ qty, product }) => {
         const imgHtml = product.photo_url
-          ? `<img src="${product.photo_url}" alt="${product.name}" class="rounded border" style="width:56px;height:56px;object-fit:cover;">`
-          : `<div class="rounded border bg-light d-flex align-items-center justify-content-center" style="width:56px;height:56px;">🛒</div>`;
+          ? `<img src="${product.photo_url}" alt="${product.name}" class="rounded border cc-guest-thumb">`
+          : `<div class="rounded border bg-light d-flex align-items-center justify-content-center cc-guest-thumb-fallback">🛒</div>`;
 
         const unit = product.unit ? ` / ${product.unit}` : "";
         const lineTotal = (Number(product.price) || 0) * (Number(qty) || 0);
@@ -107,12 +129,12 @@
 
           <div class="d-flex align-items-center gap-2">
             <button class="btn btn-sm btn-outline-secondary" data-guest-dec="${product.id}">−</button>
-            <input class="form-control form-control-sm text-center" style="width:70px"
+            <input class="form-control form-control-sm text-center cc-guest-qty-input"
                   value="${qty}" inputmode="numeric" data-guest-qty="${product.id}">
             <button class="btn btn-sm btn-outline-secondary" data-guest-inc="${product.id}">+</button>
           </div>
 
-          <div class="text-end" style="width:110px">
+          <div class="text-end cc-guest-line-total">
             <div class="fw-semibold">${formatMoney(lineTotal)}</div>
             <button class="btn btn-sm btn-link text-danger p-0" data-guest-remove="${item.id}">Remove</button>
           </div>
@@ -180,6 +202,10 @@
     });
   }
 
+  // ===========================================================================
+  // CART MUTATIONS (API)
+  // ===========================================================================
+
   /**
    * Update a cart item quantity on the backend.
    * @param {number} itemId - cart item id
@@ -206,7 +232,6 @@
 
   /**
    * Remove an item from cart on the backend.
-   *
    * @param {number} itemId - cart item id
    */
   async function removeItem(itemId) {
@@ -225,177 +250,210 @@
   }
 
   /**
-   * Clears the cart by deleting each item (API doesn't provide a bulk clear endpoint).
+   * Remove an item from cart on the backend WITHOUT re-fetching.
+   * This is used for "Clear Cart" to avoid N refresh calls.
+   * @param {number} itemId - cart item id
    */
-  async function clearCart() {
-    if (!cart?.items?.length) return;
+  async function removeItemNoRefresh(itemId) {
+    const res = await CC.apiRequest(`/cart/remove/${itemId}/`, {
+      method: "DELETE",
+    });
 
-    CC.setStatus(statusEl, "Clearing cart…", "muted");
-
-    // Delete sequentially to keep server load and errors simple to reason about
-    for (const item of cart.items) {
-      const res = await CC.apiRequest(`/cart/remove/${item.id}/`, {
-        method: "DELETE",
-      });
-      if (res.status === 401) return handleUnauthorized();
-      if (!res.ok) {
-        throw new Error(
-          res.data?.error ||
-            res.data?.detail ||
-            res.raw ||
-            `HTTP ${res.status}`,
-        );
-      }
+    if (res.status === 401) return handleUnauthorized();
+    if (!res.ok) {
+      throw new Error(
+        res.data?.error || res.data?.detail || res.raw || `HTTP ${res.status}`,
+      );
     }
-
-    await refresh();
   }
 
   /**
-   * Render cart rows + totals.
+   * Clears the authenticated cart by deleting each cart item.
+   * The API currently exposes remove-by-item-id (no bulk clear endpoint),
+   * so we perform deletes and then refresh once at the end.
    */
-  function render() {
+  async function clearAuthCart() {
+    const items = Array.isArray(cart?.items) ? cart.items : [];
+
+    if (!items.length) {
+      CC.setStatus(statusEl, "Your cart is already empty.", "muted");
+      return;
+    }
+
+    // UX: prevent double clicks while clearing
+    if (clearBtn) clearBtn.disabled = true;
+    CC.setStatus(statusEl, "Clearing your cart…", "muted");
+
+    try {
+      // Run sequentially to keep server load predictable and errors easier to attribute.
+      for (const it of items) {
+        await removeItemNoRefresh(Number(it.id));
+      }
+
+      await refresh();
+      CC.setStatus(statusEl, "Cart cleared.", "success");
+    } finally {
+      if (clearBtn) clearBtn.disabled = false;
+    }
+  }
+
+  // ===========================================================================
+  // RENDER (AUTH CART)
+  // ===========================================================================
+
+  function renderCart() {
     if (!tableBodyEl || !subtotalEl || !totalEl) return;
 
-    const items = cart?.items || [];
-
-    tableBodyEl.innerHTML = "";
+    const items = Array.isArray(cart?.items) ? cart.items : [];
 
     if (!items.length) {
       tableBodyEl.innerHTML = `
         <tr>
-          <td class="px-3 py-4 text-muted" colspan="5">Your cart is empty.</td>
+          <td colspan="5" class="text-center text-muted py-4">
+            Your cart is empty.
+          </td>
         </tr>
       `;
-
-      subtotalEl.textContent = CC.formatMoney(0);
-      totalEl.textContent = CC.formatMoney(0);
-
-      if (goCheckoutBtn) goCheckoutBtn.classList.add("disabled");
-      CC.setStatus(statusEl, "Your cart is empty.", "muted");
+      subtotalEl.textContent = formatMoney(0);
+      totalEl.textContent = formatMoney(0);
+      CC.setStatus(statusEl, "", "muted");
       return;
     }
 
-    if (goCheckoutBtn) goCheckoutBtn.classList.remove("disabled");
+    tableBodyEl.innerHTML = items
+      .map((item) => {
+        const p = item.product || {};
+        const name = p.name || "Item";
+        const price = Number(p.price) || 0;
+        const qty = Number(item.quantity) || 1;
+        const line = Number(item.subtotal) || price * qty;
 
-    let total = 0;
+        return `
+          <tr>
+            <td class="px-3">
+              <div class="fw-semibold">${name}</div>
+            </td>
 
-    for (const item of items) {
-      const itemId = item.id;
-      const name = CC.escapeHtml(item.product_name || "Item");
-      const unitPrice = item.product_price ?? 0;
-      const qty = Number(item.quantity || 1);
-      const lineTotal = item.subtotal ?? Number(unitPrice) * qty;
+            <td>${formatMoney(price)}</td>
 
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td class="px-3 fw-semibold">${name}</td>
-        <td>${CC.formatMoney(unitPrice)}</td>
-        <td>
-          <div class="input-group input-group-sm">
-            <button class="btn btn-outline-secondary" data-dec="${itemId}" type="button">-</button>
-            <input class="form-control text-center" value="${qty}" inputmode="numeric" data-qty="${itemId}">
-            <button class="btn btn-outline-secondary" data-inc="${itemId}" type="button">+</button>
-          </div>
-        </td>
-        <td class="fw-semibold">${CC.formatMoney(lineTotal)}</td>
-        <td class="text-end px-3">
-          <button class="btn btn-sm btn-outline-danger" data-rm="${itemId}" type="button">Remove</button>
-        </td>
-      `;
-      tableBodyEl.appendChild(tr);
-      total += parseFloat(lineTotal);
-    }
+            <td>
+              <input
+                class="form-control form-control-sm"
+                type="number"
+                min="1"
+                step="1"
+                value="${qty}"
+                data-qty-input="${item.id}"
+              />
+            </td>
 
-    // The API returns total as a string. We treat it as authoritative.
+            <td>${formatMoney(line)}</td>
 
-    subtotalEl.textContent = CC.formatMoney(total);
-    totalEl.textContent = CC.formatMoney(total);
+            <td class="text-end px-3">
+              <button
+                class="btn btn-sm btn-outline-danger"
+                type="button"
+                data-remove-btn="${item.id}"
+              >
+                Remove
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
 
-    CC.setStatus(statusEl, "Cart loaded.", "success");
+    // Totals from API
+    subtotalEl.textContent = formatMoney(cart?.total || 0);
+    totalEl.textContent = formatMoney(cart?.total || 0);
+
+    // Wire qty inputs
+    tableBodyEl.querySelectorAll("[data-qty-input]").forEach((inp) => {
+      inp.addEventListener("change", async () => {
+        const id = Number(inp.getAttribute("data-qty-input"));
+        try {
+          await updateItemQty(id, inp.value);
+        } catch (err) {
+          CC.setStatus(statusEl, err.message || "Update failed.", "danger");
+        }
+      });
+    });
+
+    // Wire remove buttons
+    tableBodyEl.querySelectorAll("[data-remove-btn]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = Number(btn.getAttribute("data-remove-btn"));
+        try {
+          await removeItem(id);
+        } catch (err) {
+          CC.setStatus(statusEl, err.message || "Remove failed.", "danger");
+        }
+      });
+    });
+
+    CC.setStatus(statusEl, "", "muted");
   }
 
-  /**
-   * Full refresh: fetch cart from API then render.
-   */
+  // ===========================================================================
+  // REFRESH / BOOT
+  // ===========================================================================
+
   async function refresh() {
     await fetchCart();
-    render();
+    renderCart();
   }
 
-  /**
-   * Wire all click/change handlers.
-   */
-  function wireEvents() {
-    // +/-/remove buttons
-    tableBodyEl?.addEventListener("click", async (e) => {
-      const target = e.target;
-      const inc = target?.getAttribute?.("data-inc");
-      const dec = target?.getAttribute?.("data-dec");
-      const rm = target?.getAttribute?.("data-rm");
+  function wireActions() {
+    if (clearBtn) {
+      clearBtn.addEventListener("click", async () => {
+        try {
+          // Guest cart clear
+          if (!CC.auth.isLoggedIn()) {
+            CC.cartCache.clearGuestCart();
+            try {
+              renderGuestCart();
+            } catch {
+              // ignore
+            }
+            CC.setStatus(statusEl, "Cart cleared.", "success");
+            return;
+          }
 
-      try {
-        if (inc) {
-          const row = cart?.items?.find((x) => String(x.id) === String(inc));
-          const next = (Number(row?.quantity) || 1) + 1;
-          CC.setStatus(statusEl, "Updating quantity…", "muted");
-          await updateItemQty(Number(inc), next);
+          // Auth cart clear
+          await clearAuthCart();
+        } catch (err) {
+          CC.setStatus(
+            statusEl,
+            err.message || "Unable to clear cart.",
+            "danger",
+          );
         }
-
-        if (dec) {
-          const row = cart?.items?.find((x) => String(x.id) === String(dec));
-          const next = Math.max(1, (Number(row?.quantity) || 1) - 1);
-          CC.setStatus(statusEl, "Updating quantity…", "muted");
-          await updateItemQty(Number(dec), next);
-        }
-
-        if (rm) {
-          CC.setStatus(statusEl, "Removing item…", "muted");
-          await removeItem(Number(rm));
-        }
-      } catch (err) {
-        CC.setStatus(statusEl, err?.message || String(err), "danger");
-      }
-    });
-
-    // Manual quantity typing (Enter or blur)
-    tableBodyEl?.addEventListener("change", async (e) => {
-      const input = e.target;
-      if (!input?.matches?.("[data-qty]")) return;
-
-      const itemId = Number(input.getAttribute("data-qty"));
-      const newQty = Number(String(input.value || "").trim());
-
-      try {
-        CC.setStatus(statusEl, "Updating quantity…", "muted");
-        await updateItemQty(itemId, newQty);
-      } catch (err) {
-        CC.setStatus(statusEl, err?.message || String(err), "danger");
-      }
-    });
-
-    clearBtn?.addEventListener("click", async () => {
-      try {
-        await clearCart();
-      } catch (err) {
-        CC.setStatus(statusEl, err?.message || String(err), "danger");
-      }
-    });
-  }
-
-  CC.onReady(async () => {
-    // Only run if user is logged in; otherwise the page shows logged-out panel.
-    if (!CC.auth.isLoggedIn()) {
-      renderGuestCart();
-      return;
+      });
     }
 
-    wireEvents();
+    if (goCheckoutBtn) {
+      goCheckoutBtn.addEventListener("click", () => {
+        window.location.href = "checkout.html";
+      });
+    }
+  }
 
+  document.addEventListener("DOMContentLoaded", async () => {
+    // Guest cart (only renders if your HTML provides a cartHost)
     try {
-      await refresh();
-    } catch (err) {
-      CC.setStatus(statusEl, err?.message || String(err), "danger");
+      renderGuestCart();
+    } catch {
+      // Keep silent like source behavior (do not break cart page)
+    }
+
+    // Auth cart
+    if (CC.auth.isLoggedIn()) {
+      try {
+        wireActions();
+        await refresh();
+      } catch (err) {
+        CC.setStatus(statusEl, err.message || "Unable to load cart.", "danger");
+      }
     }
   });
 })();

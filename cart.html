@@ -24,18 +24,13 @@
   </head>
 
   <body data-page="cart" class="cc-body">
-    <!-- Navbar -->
+    <!-- ========================================================= -->
+    <!-- NAVBAR                                                    -->
+    <!-- ========================================================= -->
     <nav class="navbar navbar-expand-lg cc-navbar sticky-top">
       <div class="container-xxl px-3">
-        <a
-          class="navbar-brand d-flex align-items-center gap-2"
-          href="index.html"
-        >
-          <img
-            class="cc-mark"
-            src="./Images/CClogo1.png"
-            alt="Crop Cart Logo IMG"
-          />
+        <a class="navbar-brand d-flex align-items-center gap-2" href="index.html">
+          <img class="cc-mark" src="./Images/CClogo1.png" alt="Crop Cart Logo IMG" />
           <span class="fw-bold">CropCart</span>
         </a>
 
@@ -70,6 +65,9 @@
       </div>
     </nav>
 
+    <!-- ========================================================= -->
+    <!-- PAGE CONTENT                                               -->
+    <!-- ========================================================= -->
     <main class="container py-5">
       <!-- Logged OUT view -->
       <div data-auth="out">
@@ -100,7 +98,7 @@
                     <tr>
                       <th class="px-3">Item</th>
                       <th>Price</th>
-                      <th style="width: 160px">Qty</th>
+                      <th class="cc-col-qty">Qty</th>
                       <th>Total</th>
                       <th class="text-end px-3">Remove</th>
                     </tr>
@@ -111,11 +109,7 @@
             </div>
 
             <div class="d-flex justify-content-between mt-3">
-              <button
-                class="btn cc-btn-outline"
-                id="clearCartBtn"
-                type="button"
-              >
+              <button class="btn cc-btn-outline" id="clearCartBtn" type="button">
                 Clear Cart
               </button>
             </div>
@@ -132,9 +126,7 @@
 
               <div class="d-flex justify-content-between mb-2">
                 <span class="text-muted">Tax</span>
-                <span id="cartTax" class="text-muted"
-                  >Calculated at checkout</span
-                >
+                <span id="cartTax" class="text-muted">Calculated at checkout</span>
               </div>
 
               <hr />
@@ -149,8 +141,7 @@
               </div>
 
               <p class="small text-muted mt-3 mb-0">
-                Tax is calculated based on your delivery address during
-                checkout.
+                Tax is calculated based on your delivery address during checkout.
               </p>
             </div>
           </div>
@@ -158,6 +149,9 @@
       </div>
     </main>
 
+    <!-- ========================================================= -->
+    <!-- FOOTER                                                     -->
+    <!-- ========================================================= -->
     <footer class="cc-footer fixed-bottom">
       <div class="container-xxl px-3 py-4">
         <div
@@ -169,6 +163,7 @@
       </div>
     </footer>
 
+    <!-- Bootstrap bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

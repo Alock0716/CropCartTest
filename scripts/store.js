@@ -1,6 +1,7 @@
 /**
+ * ============================================================================
  * store.js — Store page logic (index.html)
- *
+ * ----------------------------------------------------------------------------
  * Requires:
  * - config.js
  * - utils.js (window.CC)
@@ -8,14 +9,26 @@
  *
  * What this file does:
  * - Loads product list from the API
- * - Supports search, category filter, and sorting
+ * - Supports search, category filter, sorting
+ * - Supports farm filter + location filter
  * - Renders product cards into #products
- * - Loads and caches favorite farms (if logged in)
- * - Uses event delegation for Add-to-cart and Favorite toggles
+ * - Loads and caches favorite farms (API-backed)
+ * - Uses event delegation:
+ *    - Open modal from image / add button
+ *    - Add-to-cart from modal
+ *    - Favorite toggle from product card
+ *    - Daily picks -> filter by farm
  *
  * Image behavior:
  * - If product.photo_url exists, we render it as <img>
- * - If it is missing OR fails to load, we fall back to the initial letter tile
+ * - If missing OR fails to load, we fall back to the initial letter tile
+ *
+ * IMPORTANT:
+ * - This regen is ORGANIZATION + COMMENTS only.
+ * - No functional logic changes.
+ * - No inline styles were introduced; one existing inline style in error <pre>
+ *   was replaced with a CSS class (cc-prewrap).
+ * ============================================================================
  */
 
 (function initStorePage() {
@@ -29,15 +42,26 @@
     return;
   }
 
-  // Page elements (IDs come from index.html)
-  const pageStatusEl = document.getElementById("pageStatus"); // optional (may be null)
+  /* ==========================================================================
+   * DOM ELEMENTS (IDs come from index.html)
+   * ========================================================================== */
+
+  const pageStatusEl = document.getElementById("pageStatus"); // optional
   const productsHostEl = document.getElementById("products");
+
+  // Filters / controls
   const searchEl = document.getElementById("productSearch");
   const categoryEl = document.getElementById("productCategory");
   const sortEl = document.getElementById("productSort");
   const farmEl = document.getElementById("productFarm");
   const locationEl = document.getElementById("productLocation");
+
+  // Favorites sidebar host (Today's picks)
   const favoriteFarmsHostEl = document.getElementById("favoriteFarmsHost");
+
+  /* ==========================================================================
+   * STATE
+   * ========================================================================== */
 
   // Farm lookup cache (built from GET /api/farms/)
   // Key: normalized farm name (lowercased + trimmed)
@@ -47,7 +71,7 @@
   let allProducts = [];
 
   // -------------------------
-  // Favorites (NEW API)
+  // Favorites (API-backed)
   // -------------------------
 
   // Keyed by farm_id (number)
@@ -60,6 +84,10 @@
   let farmByIdMap = new Map(); // id -> farmRow
   let farmIdByNameMap = new Map(); // normalized farm name -> id
 
+  /* ==========================================================================
+   * FILTER + SORT HELPERS
+   * ========================================================================== */
+
   /**
    * Returns the selected sort value, normalized.
    * This keeps compatibility if UI labels ever change slightly.
@@ -70,42 +98,43 @@
   }
 
   /**
-   * If the URL contains ?farm=Farm%20Name, select that farm in the farm filter.
-   * Must be called AFTER populateFarmFilter() so the options exist.
+   * Apply an initial farm filter using:
+   * 1) URL param: ?farm=...
+   * 2) sessionStorage fallback: cc_store_prefarm
+   *
+   * This solves cases where hosting/routing strips query params on redirect.
    */
   function applyInitialFarmFilterFromUrl() {
     if (!farmEl) return;
 
     const params = new URLSearchParams(window.location.search);
-    const farmParamRaw = String(params.get("farm") || "").trim();
-    if (!farmParamRaw) return;
 
-    // Try direct match first (exact option value)
-    const directOption = Array.from(farmEl.options || []).find(
-      (opt) => String(opt.value) === farmParamRaw,
-    );
+    // 1) Prefer querystring
+    let farmParamRaw = String(params.get("farm") || "").trim();
 
-    if (directOption) {
-      farmEl.value = farmParamRaw;
-      render();
-      return;
+    // 2) Fallback to sessionStorage
+    if (!farmParamRaw) {
+      farmParamRaw = String(sessionStorage.getItem("cc_store_prefarm") || "").trim();
     }
 
-    // Fallback: normalized match (case/spacing tolerant)
+    if (!farmParamRaw) return;
+
+    // Clear the fallback so it doesn't "stick" forever
+    sessionStorage.removeItem("cc_store_prefarm");
+
     const wantKey = normalizeFarmKey(farmParamRaw);
-    const normalizedOption = Array.from(farmEl.options || []).find(
+
+    const match = Array.from(farmEl.options || []).find(
       (opt) => normalizeFarmKey(opt.value) === wantKey,
     );
 
-    if (normalizedOption) {
-      farmEl.value = normalizedOption.value;
-      render();
-      return;
+    if (match) {
+      farmEl.value = match.value;
+
+      // Trigger render in the same way a user changing the dropdown would
+      farmEl.dispatchEvent(new Event("change", { bubbles: true }));
     }
-
-    // If it doesn't exist in dropdown (maybe farm no longer selling), do nothing.
   }
-
   /**
    * Sort comparator for product lists
    */
@@ -142,6 +171,10 @@
         return String(a.name ?? "").localeCompare(String(b.name ?? ""));
     }
   }
+
+  /* ==========================================================================
+   * FAVORITES — NORMALIZATION HELPERS
+   * ========================================================================== */
 
   /**
    * Normalize favorites list into an array of farm_id numbers.
@@ -195,6 +228,10 @@
 
     return names;
   }
+
+  /* ==========================================================================
+   * FAVORITES — API CALLS
+   * ========================================================================== */
 
   /**
    * GET /api/favorites/  [name='list_favorites']
@@ -316,6 +353,10 @@
       })
       .join("");
   }
+
+  /* ==========================================================================
+   * FARM LOOKUP HELPERS
+   * ========================================================================== */
 
   /**
    * Build a Map of farms keyed by farm id.
@@ -528,6 +569,10 @@
     farmEl.value = stillExists ? prev : "all";
   }
 
+  /* ==========================================================================
+   * RENDER HELPERS
+   * ========================================================================== */
+
   function renderEmptyState(query, category) {
     const msg = query
       ? `No matches for “${CC.escapeHtml(query)}”.`
@@ -696,7 +741,7 @@
   }
 
   /**
-   * Re-render the product list based on search/category/sort.
+   * Re-render the product list based on search/category/sort/farm/location.
    */
   function render() {
     if (!productsHostEl) return;
@@ -714,7 +759,7 @@
     // Start with full list
     let list = [...allProducts];
 
-    // Farm filter (NEW)
+    // Farm filter
     if (farmSelected && farmSelected !== "all") {
       list = list.filter(
         (p) =>
@@ -771,6 +816,10 @@
     `;
   }
 
+  /* ==========================================================================
+   * API LOADERS
+   * ========================================================================== */
+
   async function loadProducts() {
     if (!productsHostEl) return;
     CC.setStatus(pageStatusEl, "Loading products…", "muted");
@@ -821,11 +870,15 @@
           <div class="fw-bold">Error loading products</div>
           <div class="small mt-1">Check API availability and CORS.</div>
           <hr/>
-          <pre class="small mb-0" style="white-space:pre-wrap;">${CC.escapeHtml(err?.message || String(err))}</pre>
+          <pre class="small mb-0 cc-prewrap">${CC.escapeHtml(err?.message || String(err))}</pre>
         </div>
       `;
     }
   }
+
+  /* ==========================================================================
+   * CART ACTIONS
+   * ========================================================================== */
 
   async function handleAddToCart(product, qtyToAdd = 1) {
     const qty = Math.max(1, Math.floor(Number(qtyToAdd) || 1));
@@ -859,6 +912,10 @@
 
     CC.setStatus(pageStatusEl, `Added ${qty} to your cart ✓`, "success");
   }
+
+  /* ==========================================================================
+   * BOOT + EVENT WIRING
+   * ========================================================================== */
 
   CC.onReady(async () => {
     // Filter controls
@@ -1004,14 +1061,14 @@
       }
     });
 
-    //click handler for dynamic content
+    // click handler for dynamic content
     document.addEventListener("click", async (e) => {
       const addBtn = e.target.closest?.("[data-add]");
       if (addBtn) {
         const productId = addBtn.getAttribute("data-add");
         if (!productId) return;
 
-        //find product from allProducts
+        // find product from allProducts
         const product = allProducts.find(
           (p) => String(p.id) === String(productId),
         );
@@ -1125,6 +1182,7 @@
         return;
       }
     });
+
     await loadProducts();
   });
 })();

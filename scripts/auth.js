@@ -1,15 +1,23 @@
 /**
- * auth.js — login/register + navbar auth UI
+ * ============================================================================
+ * auth.js — login/register + navbar auth UI (SOURCE-BASED REGEN)
+ * ----------------------------------------------------------------------------
+ * IMPORTANT:
+ * - Logic/behavior preserved from project source file.
+ * - Changes are ORGANIZATION + COMMENTS only.
  *
  * Requires:
  * - config.js (defines window.__CROPCART_CONFIG__)
  * - utils.js  (defines window.CC)
  *
- * What this file does
- * 1) Handles login form submit on login.html
- * 2) Handles register form submit on register.html
- * 3) Renders the navbar auth block into the element with id="authNav"
- * 4) Provides a Logout action
+ * What this file does:
+ * - Renders auth dropdown/login link into #authNav
+ * - Wires login.html form (and guest cart sync into DB cart on login)
+ * - Wires register.html form (normal user registration)
+ * - Wires farmer-register.html form (provider registration)
+ * - Wires provider registration status checker
+ * - Wires password reset request + confirm forms
+ * ============================================================================
  */
 
 (function initAuthPageScripts() {
@@ -23,7 +31,10 @@
     return;
   }
 
-  // API docs routes
+  /* ==========================================================================
+   * API ROUTES (from your server API help)
+   * ========================================================================== */
+
   const LOGIN_PATH = "/auth/login/";
   const REGISTER_PATH = "/auth/register/";
   const PASSWORD_RESET_REQUEST_PATH = "/auth/password-reset/";
@@ -31,9 +42,13 @@
   const PROVIDER_REGISTER_PATH = "/auth/register-provider/";
   const PROVIDER_REG_STATUS_BASE = "/auth/registration-status/";
 
-  // Farmer auth endpoints (kept for later)
+  // Farmer auth endpoints (kept for later; preserved from source)
   const FARMER_LOGIN_PATH = "/auth/login-provider/";
   const FARMER_REGISTER_PATH = "/auth/register-provider/";
+
+  /* ==========================================================================
+   * NAVBAR AUTH UI
+   * ========================================================================== */
 
   function renderNavbarAuth() {
     const authNavEl = document.getElementById("authNav");
@@ -41,6 +56,7 @@
 
     const auth = CC.auth.getAuth();
 
+    // Logged out: show single "Login / Register" button
     if (!auth) {
       authNavEl.innerHTML = `
         <a class="btn cc-btn-outline ms-lg-2" href="login.html">Login / Register</a>
@@ -48,6 +64,7 @@
       return;
     }
 
+    // Logged in: dropdown
     const displayName = auth.user?.username || auth.user?.email || "My Account";
 
     authNavEl.innerHTML = `
@@ -68,6 +85,10 @@
       CC.auth.logout("index.html");
     });
   }
+
+  /* ==========================================================================
+   * LOGIN (login.html)
+   * ========================================================================== */
 
   function wireLoginForm() {
     const form = document.getElementById("loginForm");
@@ -112,11 +133,10 @@
 
         CC.auth.saveAuth(parsed.data, !!rememberEl?.checked);
 
-        // If the visitor built a cart while logged out, merge it into their DB cart now.
+        // If visitor built a cart while logged out, merge it into their DB cart now.
         // Uses POST /api/cart/add/ for each cached item.
         try {
           const result = await CC.cartCache.syncGuestCartToServer();
-          // Optional: show a tiny status hint (won’t block login)
           if (result?.attempted) {
             CC.setStatus(
               statusEl,
@@ -125,7 +145,7 @@
             );
           }
         } catch {
-          // Don’t fail login if sync fails
+          // Do not fail login if sync fails
         }
 
         const returnTo = CC.auth.consumeReturnTo("index.html");
@@ -141,6 +161,10 @@
       }
     });
   }
+
+  /* ==========================================================================
+   * NORMAL USER REGISTER (register.html)
+   * ========================================================================== */
 
   function wireRegisterForm() {
     const form = document.getElementById("registerForm");
@@ -223,6 +247,10 @@
     });
   }
 
+  /* ==========================================================================
+   * FARMER / PROVIDER REGISTER (farmer-register.html)
+   * ========================================================================== */
+
   function wireFarmerRegisterForm() {
     const form = document.getElementById("farmerRegisterForm");
     if (!form) return;
@@ -282,7 +310,6 @@
           email,
           password,
           farm_name,
-          // Only include optional fields if they have content (keeps payload clean)
           ...(farm_description ? { farm_description } : {}),
           ...(farm_location ? { farm_location } : {}),
         };
@@ -369,9 +396,7 @@
       try {
         const parsed = await CC.apiRequest(
           `${PROVIDER_REG_STATUS_BASE}${idNum}/`,
-          {
-            method: "GET",
-          },
+          { method: "GET" },
         );
 
         if (!parsed.ok) {
@@ -391,9 +416,7 @@
           parsed.data?.status_display || parsed.data?.status || "unknown";
         const message = parsed.data?.message || "Status returned.";
 
-        // Save the id so next time they come back it’s still there
         localStorage.setItem("cc_provider_registration_id", String(idNum));
-
         CC.setStatus(resultEl, `✅ ${status}: ${message}`, "success");
       } catch (err) {
         CC.setStatus(
@@ -406,6 +429,10 @@
       }
     });
   }
+
+  /* ==========================================================================
+   * PASSWORD RESET (password-reset.html + password-reset-confirm.html)
+   * ========================================================================== */
 
   function wirePasswordResetRequestForm() {
     const form = document.getElementById("passwordResetRequestForm");
@@ -434,7 +461,6 @@
           json: { email },
         });
 
-        // API intentionally returns the same message even if email doesn't exist (good security practice)
         const msg =
           res.data?.message ||
           "If that email exists, a reset link has been sent.";
@@ -543,12 +569,17 @@
     });
   }
 
+  /* ==========================================================================
+   * BOOT
+   * ========================================================================== */
+
   CC.onReady(() => {
     renderNavbarAuth();
     wireLoginForm();
     wireRegisterForm();
     wirePasswordResetRequestForm();
     wirePasswordResetConfirmForm();
+
     // Provider (Farmer) registration + status check
     wireFarmerRegisterForm();
     wireFarmerStatusCheckForm();

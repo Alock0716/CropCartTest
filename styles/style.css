@@ -178,7 +178,8 @@ body .cc-muted {
   padding: 18px;
   position: relative;
   left: 30%;
-  max-width: 40%;
+  max-width: fit-content;
+  min-width: 40%;
 }
 
 .cc-hr {
@@ -398,14 +399,18 @@ body .cc-muted {
   padding: 0;
   margin: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: clip;
+  max-height: 250px;
 }
 
 .cc-product-photo {
   width: 100%;
-  height: 150px;
+  height: 250px;
   display: flex;
-  object-fit: contain;
+  object-fit: cover;
+  cursor: pointer;
+  overflow: clip;
+  z-index: 0;
 }
 
 .cc-product-initial {
@@ -419,7 +424,8 @@ body .cc-muted {
 }
 
 .cc-product-img--fallback {
-  height: 150px;
+  height: 250px;
+  width: 100%;
   background:
     radial-gradient(600px 250px at 20% 10%, rgba(47, 122, 77, 0.18), transparent 60%),
     linear-gradient(135deg, rgba(30, 91, 56, 0.09), rgba(47, 122, 77, 0.06)),
@@ -427,6 +433,115 @@ body .cc-muted {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 
+  ==========================
+  Favorite Farms Scroll Area
+  ========================== 
+*/
+
+#favoriteFarmsHost {
+  max-height: 260px; /* Adjust as desired */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px; /* Prevent content from hiding under scrollbar */
+}
+
+/* Optional: nicer scrollbar (Chrome/Edge) */
+#favoriteFarmsHost::-webkit-scrollbar {
+  width: 6px;
+}
+
+#favoriteFarmsHost::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#favoriteFarmsHost::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+
+/* Firefox Case Handler*/
+#favoriteFarmsHost {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+
+#FavoriteCard {
+  max-height: 260px; /* Adjust as desired */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px; /* Prevent content from hiding under scrollbar */
+}
+
+/* Optional: nicer scrollbar (Chrome/Edge) */
+#FavoriteCard::-webkit-scrollbar {
+  width: 6px;
+}
+
+#FavoriteCard::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#FavoriteCard::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+
+/* Firefox Case Handler*/
+#FavoriteCard {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+
+.null-btn {
+  position: relative;
+  background-color: transparent;
+  border-color: transparent;
+  cursor: default;
+  padding: 0;
+  margin: 0;
+  z-index: 999;
+}
+.top-btn {
+  z-index: 999;
+}
+
+.cc-scroll-card {
+  max-height: 225px; /* Adjust as desired */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.cc-scroll-card-lg {
+  max-height: 500px; /* Adjust as desired */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Optional: nicer scrollbar (Chrome/Edge) */
+.cc-scroll-card::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cc-scroll-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cc-scroll-card::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+
+/* Firefox Case Handler*/
+.cc-scroll-card {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+
+.cc-order-details-card {
+  height: fit-content;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -437,12 +552,38 @@ body .cc-muted {
   max-width: 460px;
 }
 
+.cover {
+  z-index: 50;
+  position: relative;
+}
+
+.open-image {
+  max-height: fit-content;
+  z-index: 0;
+  padding: 0;
+  margin: 0;
+  transition: transform 0.25s ease;
+}
+
+.open-image:hover {
+  transform: scale(1.03);
+  z-index: 0;
+  max-height: fit-content;
+  z-index: 0;
+  padding: 0;
+  margin: 0;
+}
+
 .cc-maxw-520 {
   max-width: 520px;
 }
 
 .cc-maxw-720 {
   max-width: 720px;
+}
+
+.cc-maxw-900 {
+  max-width: 900px;
 }
 
 /* Table column sizing helpers */
@@ -453,4 +594,61 @@ body .cc-muted {
 /* Farmer portal inventory search input */
 .cc-inv-search {
   max-width: 240px;
+}
+
+/* Ensure <pre> blocks in dynamic error UI wrap nicely (no inline styles) */
+.cc-prewrap {
+  white-space: pre-wrap;
+}
+
+.cc-maxw-720 {
+  max-width: 720px;
+}
+
+.cc-maxw-520 {
+  max-width: 520px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Account page — provider info                                                */
+/* -------------------------------------------------------------------------- */
+
+.cc-provider-meta {
+  font-size: medium;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Store product modal image (no inline styles)                                */
+/* -------------------------------------------------------------------------- */
+
+.cc-product-modal-img {
+  max-height: 520px;
+  object-fit: contain;
+}
+
+.cc-product-modal-fallback {
+  height: 320px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Guest cart (rendered by cart.js)                                            */
+/* -------------------------------------------------------------------------- */
+
+.cc-guest-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+}
+
+.cc-guest-thumb-fallback {
+  width: 56px;
+  height: 56px;
+}
+
+.cc-guest-qty-input {
+  width: 70px;
+}
+
+.cc-guest-line-total {
+  width: 110px;
 }

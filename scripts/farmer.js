@@ -1,6 +1,7 @@
 /**
+ * ============================================================================
  * farmer.js — Farmer Portal logic
- *
+ * ----------------------------------------------------------------------------
  * IMPORTANT:
  * - Farmer routes are rooted at /farmer/* (NOT /api/farmer/*)
  * - Provider auth may be stored separately as "cc_farmer_auth"
@@ -9,38 +10,58 @@
  * - Uses provider token if present
  * - Falls back to customer token
  * - Gives a clear 401 message guiding provider approval/login
+ *
+ * NOTE:
+ * - Organization + comments only. Core behavior/logic preserved.
+ * ============================================================================
  */
 
 (function FarmerPortal() {
   "use strict";
 
-  // -----------------------------
-  // BASE URLS
-  // -----------------------------
+  // ==========================================================================
+  // CONFIG / BASE URLS
+  // ==========================================================================
+
   const CFG = window.__CROPCART_CONFIG__ || {};
+
+  // API base (usually ends with /api)
   const API_BASE = String(CFG.API_URL || "").replace(/\/+$/, ""); // e.g. http://3.142.227.162/api
+
+  // Root base (strip trailing /api)
   const ROOT_BASE = API_BASE.replace(/\/api$/i, ""); // e.g. http://3.142.227.162
+
+  // Local Stripe helper server base (used for connect onboarding/dashboard)
   const API_STRIPE = String(CFG.STRIPE_API_URL || "");
 
-  // -----------------------------
-  // DOM
-  // -----------------------------
-  const pageStatus = document.getElementById("pageStatus");
-  const inventoryBody = document.getElementById("inventoryBody");
-  const farmerOrdersBody = document.getElementById("farmerOrdersBody");
+  // ==========================================================================
+  // DOM (IDs must match farmer.html)
+  // ==========================================================================
 
+  const pageStatus = document.getElementById("pageStatus");
+
+  // Inventory table
+  const inventoryBody = document.getElementById("inventoryBody");
   const refreshInventoryBtn = document.getElementById("refreshInventoryBtn");
+  const invSearch = document.getElementById("invSearch");
+
+  // Orders table
+  const farmerOrdersBody = document.getElementById("farmerOrdersBody");
   const refreshFarmerOrdersBtn = document.getElementById(
     "refreshFarmerOrdersBtn",
   );
-  const invSearch = document.getElementById("invSearch");
 
+  // Add product form
   const addProductForm = document.getElementById("addProductForm");
   const addProductBtn = document.getElementById("addProductBtn");
 
+  // Header title
   const farmerPortalTitle = document.getElementById("farmerPortalTitle");
 
-  // --- DOM Edit Product Modal elements
+  // Stripe payout setup
+  const connectStripeBtn = document.getElementById("connectStripeBtn");
+
+  // --- Edit Product Modal elements
   const editProductModalEl = document.getElementById("editProductModal");
   const editProductForm = document.getElementById("editProductForm");
 
@@ -57,19 +78,17 @@
   const epSaveBtn = document.getElementById("epSaveBtn");
   const epCurrentPhoto = document.getElementById("epCurrentPhoto");
 
-  // bootstrap modal instance (created once)
+  // Bootstrap modal instance (created once)
   const editModal = editProductModalEl
     ? new bootstrap.Modal(editProductModalEl)
     : null;
 
-  // -----------------------------
+  // ==========================================================================
   // STATE
-  // -----------------------------
+  // ==========================================================================
+
   let inventory = [];
   let orders = [];
-
-  // --- Stripe payout setup elements
-  const connectStripeBtn = document.getElementById("connectStripeBtn");
 
   // Caches the exact username used for Stripe mapping so return/refresh works reliably
   const STRIPE_USERNAME_KEY = "cc_stripe_provider_username";
@@ -99,28 +118,21 @@
     if (username) localStorage.setItem(STRIPE_USERNAME_KEY, username);
     return username;
   }
-  // -----------------------------
+
+  // ==========================================================================
   // UI HELPERS
-  // -----------------------------
-
-  function setEditStatus(msg, kind = "muted") {
-    if (!epStatus) return;
-    epStatus.textContent = msg || "";
-    epStatus.className = `small text-${kind}`;
-  }
-
-  function findProductById(productId) {
-    return (
-      inventory.find(
-        (p) => String(p.id ?? p.product_id) === String(productId),
-      ) || null
-    );
-  }
+  // ==========================================================================
 
   function setStatus(msg, kind = "muted") {
     if (!pageStatus) return;
     pageStatus.textContent = msg || "";
     pageStatus.className = `small text-${kind}`;
+  }
+
+  function setEditStatus(msg, kind = "muted") {
+    if (!epStatus) return;
+    epStatus.textContent = msg || "";
+    epStatus.className = `small text-${kind}`;
   }
 
   function escapeHtml(str) {
@@ -132,9 +144,27 @@
       .replaceAll("'", "&#039;");
   }
 
-  // -----------------------------
+  function findProductById(productId) {
+    return (
+      inventory.find(
+        (p) => String(p.id ?? p.product_id) === String(productId),
+      ) || null
+    );
+  }
+
+  function showProvider401Help() {
+    // Provider registration requires approval per API docs
+    setStatus(
+      "401 Unauthorized. Farmer Portal requires an APPROVED provider account. " +
+        "If you registered as a provider, wait for admin approval, or log in with your provider credentials.",
+      "danger",
+    );
+  }
+
+  // ==========================================================================
   // AUTH HELPERS
-  // -----------------------------
+  // ==========================================================================
+
   /**
    * Reads provider auth from storage if it exists.
    * We use this FIRST because farmer endpoints likely require provider credentials.
@@ -151,7 +181,7 @@
 
   /**
    * Reads customer auth from your existing auth.js storage.
-   * auth.js stores "cc_auth" and the token field is "access".【turn4:5†auth.js†L44-L56】
+   * auth.js stores "cc_auth" and the token field is "access".
    */
   function getCustomerAuth() {
     if (typeof getAuth === "function") return getAuth(); // uses cc_auth internally
@@ -164,6 +194,11 @@
     }
   }
 
+  /**
+   * Picks the best access token available:
+   * - provider token first
+   * - customer token fallback
+   */
   function getBestAccessToken() {
     const provider = getProviderAuth();
     if (provider?.access) return String(provider.access);
@@ -195,57 +230,9 @@
     }
   }
 
-  function showProvider401Help() {
-    // Provider registration requires approval per API docs【turn4:9†API_DOCUMENTATION.md†L45-L100】
-    setStatus(
-      "401 Unauthorized. Farmer Portal requires an APPROVED provider account. " +
-        "If you registered as a provider, wait for admin approval, or log in with your provider credentials.",
-      "danger",
-    );
-  }
-
-  // -----------------------------
-  // RENDER
-  // -----------------------------
-  function openEditProductModal(productId) {
-    if (!editModal) return;
-
-    const p = findProductById(productId);
-    if (!p) {
-      setStatus("Could not find that product in inventory.", "danger");
-      return;
-    }
-
-    // Normalize common API shapes
-    const idValue = p.id ?? p.product_id;
-    const nameValue = p.name ?? "";
-    const descValue = p.description ?? "";
-    const categoryValue = p.category ?? "other";
-    const priceValue = p.price ?? "";
-    const stockValue = p.stock ?? 0;
-    const isActiveValue = typeof p.is_active === "boolean" ? p.is_active : true;
-
-    epId.value = String(idValue);
-    epName.value = String(nameValue);
-    epDescription.value = String(descValue);
-    epCategory.value = String(categoryValue);
-    epPrice.value = String(priceValue);
-    epStock.value = String(stockValue);
-    epIsActive.checked = !!isActiveValue;
-
-    // file inputs can’t be programmatically set (browser security)
-    epPhoto.value = "";
-
-    if (epCurrentPhoto) {
-      const photoUrl = p.photo_url || "";
-      epCurrentPhoto.textContent = photoUrl
-        ? "Current photo: set"
-        : "Current photo: none";
-    }
-
-    setEditStatus("");
-    editModal.show();
-  }
+  // ==========================================================================
+  // RENDER — INVENTORY + ORDERS
+  // ==========================================================================
 
   function renderInventory() {
     if (!inventoryBody) return;
@@ -253,6 +240,7 @@
     const q = String(invSearch?.value || "")
       .trim()
       .toLowerCase();
+
     const list = inventory.filter((p) => {
       const name = String(p?.name ?? "").toLowerCase();
       return !q || name.includes(q);
@@ -329,9 +317,107 @@
     }
   }
 
-  // -----------------------------
-  // API CALLS
-  // -----------------------------
+  // ==========================================================================
+  // MODAL — EDIT PRODUCT
+  // ==========================================================================
+
+  function openEditProductModal(productId) {
+    if (!editModal) return;
+
+    const p = findProductById(productId);
+    if (!p) {
+      setStatus("Could not find that product in inventory.", "danger");
+      return;
+    }
+
+    // Normalize common API shapes
+    const idValue = p.id ?? p.product_id;
+    const nameValue = p.name ?? "";
+    const descValue = p.description ?? "";
+    const categoryValue = p.category ?? "other";
+    const priceValue = p.price ?? "";
+    const stockValue = p.stock ?? 0;
+    const isActiveValue = typeof p.is_active === "boolean" ? p.is_active : true;
+
+    epId.value = String(idValue);
+    epName.value = String(nameValue);
+    epDescription.value = String(descValue);
+    epCategory.value = String(categoryValue);
+    epPrice.value = String(priceValue);
+    epStock.value = String(stockValue);
+    epIsActive.checked = !!isActiveValue;
+
+    // file inputs can’t be programmatically set (browser security)
+    epPhoto.value = "";
+
+    if (epCurrentPhoto) {
+      const photoUrl = p.photo_url || "";
+      epCurrentPhoto.textContent = photoUrl
+        ? "Current photo: set"
+        : "Current photo: none";
+    }
+
+    setEditStatus("");
+    editModal.show();
+  }
+
+  async function submitEditProduct() {
+    const productId = String(epId.value || "").trim();
+    if (!productId) return;
+
+    setEditStatus("Saving…", "muted");
+    if (epSaveBtn) epSaveBtn.disabled = true;
+
+    try {
+      const fd = new FormData();
+
+      fd.append("name", String(epName.value || "").trim());
+      fd.append("description", String(epDescription.value || "").trim());
+      fd.append("category", String(epCategory.value || "other"));
+      fd.append("price", String(epPrice.value || "0"));
+      fd.append("stock", String(epStock.value || "0"));
+      fd.append("is_active", epIsActive.checked ? "true" : "false");
+
+      const file = epPhoto.files?.[0];
+      if (file) fd.append("photo", file);
+
+      const res = await fetch(
+        `${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/`,
+        {
+          method: "PUT",
+          headers: authHeaders({ Accept: "application/json" }), // DON'T set Content-Type with FormData
+          body: fd,
+        },
+      );
+
+      const parsed = await readJsonOrText(res);
+
+      if (!parsed.ok) {
+        console.log(
+          "Update product failed:",
+          parsed.status,
+          parsed.data ?? parsed.raw,
+        );
+        setEditStatus(`Save failed (HTTP ${parsed.status})`, "danger");
+        return;
+      }
+
+      setEditStatus("Saved ✅", "success");
+
+      // Refresh inventory to show updates (stock/price/photo_url etc.)
+      await loadInventory();
+
+      // Close modal
+      editModal.hide();
+      setStatus("Product updated.", "success");
+    } finally {
+      if (epSaveBtn) epSaveBtn.disabled = false;
+    }
+  }
+
+  // ==========================================================================
+  // STRIPE CONNECT (LOCAL HELPER SERVER)
+  // ==========================================================================
 
   /**
    * Ask our local stripe helper server for the farmer’s connect status.
@@ -413,60 +499,6 @@
     window.open(data.url, "_blank", "noopener,noreferrer");
   }
 
-  async function submitEditProduct() {
-    const productId = String(epId.value || "").trim();
-    if (!productId) return;
-
-    setEditStatus("Saving…", "muted");
-    if (epSaveBtn) epSaveBtn.disabled = true;
-
-    try {
-      const fd = new FormData();
-
-      fd.append("name", String(epName.value || "").trim());
-      fd.append("description", String(epDescription.value || "").trim());
-      fd.append("category", String(epCategory.value || "other"));
-      fd.append("price", String(epPrice.value || "0"));
-      fd.append("stock", String(epStock.value || "0"));
-      fd.append("is_active", epIsActive.checked ? "true" : "false");
-
-      const file = epPhoto.files?.[0];
-      if (file) fd.append("photo", file);
-
-      const res = await fetch(
-        `${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/`,
-        {
-          method: "PUT",
-          headers: authHeaders({ Accept: "application/json" }), // DON'T set Content-Type with FormData
-          body: fd,
-        },
-      );
-
-      const parsed = await readJsonOrText(res);
-
-      if (!parsed.ok) {
-        console.log(
-          "Update product failed:",
-          parsed.status,
-          parsed.data ?? parsed.raw,
-        );
-        setEditStatus(`Save failed (HTTP ${parsed.status})`, "danger");
-        return;
-      }
-
-      setEditStatus("Saved ✅", "success");
-
-      // Refresh inventory to show updates (stock/price/photo_url etc.)
-      await loadInventory();
-
-      // Close modal
-      editModal.hide();
-      setStatus("Product updated.", "success");
-    } finally {
-      if (epSaveBtn) epSaveBtn.disabled = false;
-    }
-  }
-
   async function refreshStripePayoutUi() {
     if (!connectStripeBtn) return;
 
@@ -505,6 +537,10 @@
     }
   }
 
+  // ==========================================================================
+  // API CALLS — INVENTORY / FARM / ORDERS
+  // ==========================================================================
+
   async function loadInventory() {
     setStatus("Loading inventory…", "muted");
 
@@ -529,6 +565,7 @@
     inventory = Array.isArray(parsed.data)
       ? parsed.data
       : parsed.data?.results || [];
+
     renderInventory();
     setStatus("Inventory loaded", "success");
   }
@@ -540,7 +577,7 @@
    *
    * Assumes /farms/ returns an array of farm objects.
    * Looks for a property like:
-   *   owner === true
+   *   is_owner === true
    */
   async function loadFarmProfile() {
     try {
@@ -560,7 +597,6 @@
         return;
       }
 
-      // Adjust this line if your property name differs
       const ownedFarm = parsed.data.find((f) => f.is_owner === true);
 
       if (!ownedFarm) {
@@ -602,9 +638,8 @@
       return;
     }
 
-    orders = Array.isArray(parsed.data)
-      ? parsed.data
-      : parsed.data?.results || [];
+    orders = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
+
     renderOrders();
     setStatus("Orders loaded", "success");
   }
@@ -721,9 +756,10 @@
     await loadOrders();
   }
 
-  // -----------------------------
+  // ==========================================================================
   // EVENTS
-  // -----------------------------
+  // ==========================================================================
+
   function wireEvents() {
     invSearch?.addEventListener("input", renderInventory);
     refreshInventoryBtn?.addEventListener("click", loadInventory);
@@ -787,9 +823,9 @@
     });
   }
 
-  // -----------------------------
+  // ==========================================================================
   // INIT
-  // -----------------------------
+  // ==========================================================================
 
   document.addEventListener("DOMContentLoaded", async () => {
     wireEvents();

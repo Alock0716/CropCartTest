@@ -1,7 +1,7 @@
 /**
  * orders.js — Customer orders page (orders.html)
  *
- * What this file is
+ * Purpose
  * - Controller for orders.html.
  * - Loads the signed-in customer’s order history.
  * - Adds: favorite orders (local), search, filter, sort, and "import to cart" reorders.
@@ -11,14 +11,21 @@
  * - GET  /api/orders/           (fallback)  -> [orders]
  * - POST /api/cart/add/         (reorder)   -> add product to cart
  *
- * Requires:
+ * Requires (must be loaded before this file)
  * - config.js
  * - utils.js (window.CC helpers)
  * - auth.js / page.js (auth + navbar)
+ *
+ * Notes
+ * - “Favorites” are stored locally (localStorage) using FAVORITES_KEY.
+ * - Some DOM IDs referenced here must exist in orders.html (see the DOM section below).
  */
 (function initOrdersPage() {
   "use strict";
 
+  // ============================================================
+  // Boot guard: ensure utils.js initialized window.CC before use
+  // ============================================================
   const CC = window.CC;
   if (!CC) {
     console.warn(
@@ -27,9 +34,10 @@
     return;
   }
 
-  // -------------------------
+  // ============================================================
   // DOM (IDs come from orders.html)
-  // -------------------------
+  // - Keep these IDs in sync with the markup or event wiring will fail.
+  // ============================================================
   const pageStatusEl = document.getElementById("pageStatus");
   const refreshBtn = document.getElementById("refreshOrdersBtn");
 
@@ -45,18 +53,21 @@
 
   const tbodyEl = document.getElementById("ordersTableBody");
 
-  // -------------------------
-  // State
-  // -------------------------
-  /** @type {any[]} */
+  // ============================================================
+  // State (single source of truth for this page)
+  // ============================================================
+  /** @type {any[]} Full order list as returned from API (unfiltered). */
   let allOrders = [];
 
+  /** localStorage key for favorited order IDs (stored as array of strings). */
   const FAVORITES_KEY = "cc_favorite_orders";
+
+  /** In-memory set of favorited order IDs (strings). */
   let favoriteIds = new Set();
 
-  // -------------------------
-  // Helpers
-  // -------------------------
+  // ============================================================
+  // Helpers (small pure-ish utilities used throughout)
+  // ============================================================
 
   /** Clear auth + send user to login page */
   function handleUnauthorized() {
@@ -113,6 +124,10 @@
     return `<span class="badge rounded-pill text-bg-${kind}">${CC.escapeHtml(label)}</span>`;
   }
 
+  // ============================================================
+  // Favorites (localStorage-backed)
+  // ============================================================
+
   /** Load favorites from localStorage */
   function loadFavorites() {
     try {
@@ -127,7 +142,7 @@
     }
   }
 
-  // Save favorites to localStorage
+  /** Save favorites to localStorage */
   function saveFavorites() {
     try {
       window.localStorage.setItem(
@@ -139,7 +154,11 @@
     }
   }
 
-  // Favorite toggle. Returns the new state.
+  /**
+   * Favorite toggle. Returns the new state.
+   * @param {string|number} orderId
+   * @returns {boolean} true if now favorited; false if removed
+   */
   function toggleFavorite(orderId) {
     const id = String(orderId);
     if (favoriteIds.has(id)) {
@@ -153,9 +172,17 @@
     return true;
   }
 
+  /**
+   * @param {string|number} orderId
+   * @returns {boolean}
+   */
   function isFavorited(orderId) {
     return favoriteIds.has(String(orderId));
   }
+
+  // ============================================================
+  // Render helpers for expanded details
+  // ============================================================
 
   //Render line items into a compact list (expanded details panel)
   function renderItems(items) {
@@ -285,6 +312,10 @@
     );
   }
 
+  // ============================================================
+  // View building: filter + search + sort over allOrders
+  // ============================================================
+
   /**
    * Final list shown in the table.
    * Combines filter + favorites toggle + search + sort.
@@ -367,6 +398,10 @@
 
     return list;
   }
+
+  // ============================================================
+  // Render: table + (optional) summary card
+  // ============================================================
 
   /** Render the orders table body */
   function renderOrdersTable(orders) {
@@ -468,9 +503,9 @@
     );
   }
 
-  // -------------------------
-  // API
-  // -------------------------
+  // ============================================================
+  // API (fetch + reorder/import)
+  // ============================================================
 
   /**
    * Fetch orders.
@@ -597,9 +632,9 @@
     );
   }
 
-  // -------------------------
+  // ============================================================
   // Events + page flow
-  // -------------------------
+  // ============================================================
 
   async function refresh() {
     CC.setStatus(pageStatusEl, "Loading orders…", "muted");
@@ -688,9 +723,9 @@
     });
   }
 
-  // -------------------------
+  // ============================================================
   // Boot
-  // -------------------------
+  // ============================================================
 
   CC.onReady(() => {
     loadFavorites();
