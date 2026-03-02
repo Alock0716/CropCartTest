@@ -1,6 +1,6 @@
 window.__CROPCART_CONFIG__ = {
   //Live URL/Pkey:
-  API_URL: "https://3.142.227.162/api",
+  API_URL: "https://d1nnhq1iqs57tb.cloudfront.net/api",
 
   STRIPE_API_URL: "http://127.0.0.1:4242/api/stripe/connect/",
 
