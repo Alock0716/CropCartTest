@@ -207,8 +207,11 @@
     sumSubtotalEl.textContent = CC.formatMoney(cartTotal);
     sumTaxEl.textContent = "—";
     sumTotalEl.textContent = CC.formatMoney(cartTotal);
-
-    CC.setStatus(statusEl, "Cart loaded.", "success");
+    if (cartTotal <= 0.50){
+      CC.setStatus(statusEl, "Minimum purchase amount not reached. Please add more than $0.50 worth of items to complete checkout.", "danger");
+      return;
+    }
+    CC.setStatus(statusEl, "", "success");
   }
 
   /* ==========================================================================
@@ -500,7 +503,7 @@
         const { clientSecret } = await createOrder();
         await mountStripe(clientSecret);
 
-        CC.setStatus(statusEl, "Order created. Payment is ready.", "success");
+        CC.setStatus(statusEl, "", "success");
       } catch (err) {
         CC.setStatus(statusEl, err?.message || String(err), "danger");
         setPayMsg(err?.message || String(err), "danger");

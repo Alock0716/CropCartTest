@@ -409,7 +409,7 @@
 
       // Close modal
       editModal.hide();
-      setStatus("Product updated.", "success");
+      setStatus("", "success");
     } finally {
       if (epSaveBtn) epSaveBtn.disabled = false;
     }
@@ -449,8 +449,8 @@
    * - we redirect them to Stripe
    */
   async function startStripeConnectOnboarding(providerUsername) {
-    const res = await fetch(`${API_STRIPE}start`, {
-      method: "POST",
+    const res = await fetch(`${API_STRIPE}/payouts/earnings/`, {
+      method: "Get",
       headers: authHeaders({ Accept: "application/json" }),
     });
 
@@ -520,7 +520,7 @@
         connectStripeBtn.dataset.mode = "dashboard";
         connectStripeBtn.textContent = "Open Stripe payout dashboard";
 
-        setStatus("✅ Stripe is connected for payouts.", "success");
+        setStatus("", "success");
         return;
       }
 
@@ -567,7 +567,7 @@
       : parsed.data?.results || [];
 
     renderInventory();
-    setStatus("Inventory loaded", "success");
+    setStatus("", "success");
   }
 
   /**
@@ -641,7 +641,7 @@
     orders = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
 
     renderOrders();
-    setStatus("Orders loaded", "success");
+    setStatus("", "success");
   }
 
   async function createProductFromForm() {
@@ -695,7 +695,7 @@
       }
 
       addProductForm?.reset();
-      setStatus("Product added", "success");
+      setStatus("", "success");
       await loadInventory();
     } finally {
       if (addProductBtn) addProductBtn.disabled = false;
@@ -725,7 +725,7 @@
       return;
     }
 
-    setStatus("Product deleted", "success");
+    setStatus("", "success");
     await loadInventory();
   }
 
@@ -752,7 +752,7 @@
       return;
     }
 
-    setStatus("Confirmed", "success");
+    setStatus("", "success");
     await loadOrders();
   }
 
@@ -807,7 +807,7 @@
         if (mode === "dashboard") {
           setStatus("Opening Stripe dashboard…", "muted");
           await openStripeExpressDashboard(providerUsername);
-          setStatus("Stripe dashboard opened.", "success");
+          setStatus("", "success");
           return;
         }
 

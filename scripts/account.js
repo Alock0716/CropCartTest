@@ -187,7 +187,6 @@ wireFavoriteShopHandoff();
     const line = formatAddressLine(addressObj);
     addressSummaryEl.innerHTML = `
       <div class="fw-semibold">${CC.escapeHtml(line)}</div>
-      <div class="text-muted mt-1">Source: ${CC.escapeHtml(sourceLabel)}</div>
     `;
   }
 
@@ -375,7 +374,7 @@ wireFavoriteShopHandoff();
       inferred.postal_code
     ) {
       renderAddressSummary("Newest order", inferred);
-      setPageStatus("Loaded address from your newest order.", "success");
+      setPageStatus("", "success");
       return inferred;
     }
 
@@ -463,9 +462,7 @@ wireFavoriteShopHandoff();
       `;
       })
       .join("");
-      
-    favoritesNoteEl &&
-      (favoritesNoteEl.textContent = `Loaded ${names.length} favorite farm(s).`);
+  
   }
 
   function detectOwnedFarm(farms) {
@@ -578,7 +575,7 @@ wireFavoriteShopHandoff();
           // no-op
         }
 
-        setPageStatus("Profile saved.", "success");
+        setPageStatus("", "success");
       } catch (err) {
         setPageStatus(err?.message || String(err), "danger");
       } finally {
@@ -731,7 +728,7 @@ wireFavoriteShopHandoff();
 
       setLocalJson(LOCAL_ADDRESS_KEY, payload);
       renderAddressSummary("Saved on this device", payload);
-      setPageStatus("Saved address locally.", "success");
+      setPageStatus("", "success");
       setInlineStatus(addressModalStatusEl, "Saved!", "success");
 
       // Close modal
@@ -878,6 +875,6 @@ wireFavoriteShopHandoff();
     await Promise.allSettled([loadFavorites(), loadProviderInfo(username)]);
 
     wireEvents(userKey, username, email);
-    setPageStatus("Account loaded.", "success");
+    setPageStatus("", "success");
   });
 })();

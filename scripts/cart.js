@@ -291,7 +291,7 @@
       }
 
       await refresh();
-      CC.setStatus(statusEl, "Cart cleared.", "success");
+      CC.setStatus(statusEl, "", "success");
     } finally {
       if (clearBtn) clearBtn.disabled = false;
     }
@@ -362,10 +362,10 @@
         `;
       })
       .join("");
-
+    
     // Totals from API
-    subtotalEl.textContent = formatMoney(cart?.total || 0);
-    totalEl.textContent = formatMoney(cart?.total || 0);
+    subtotalEl.textContent = formatMoney(cart?.total_price || 0);
+    totalEl.textContent = formatMoney(cart?.total_price || 0);
 
     // Wire qty inputs
     tableBodyEl.querySelectorAll("[data-qty-input]").forEach((inp) => {
@@ -415,7 +415,7 @@
             } catch {
               // ignore
             }
-            CC.setStatus(statusEl, "Cart cleared.", "success");
+            CC.setStatus(statusEl, "", "success");
             return;
           }
 

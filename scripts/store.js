@@ -89,6 +89,22 @@
    * ========================================================================== */
 
   /**
+   * Clear all filter controls back to defaults and re-render.
+   * This is used by the "Clear filters" button in the dropdown.
+  */
+  function clearAllFilters() {
+    if (searchEl) searchEl.value = "";
+
+    // Keep defaults aligned with index.html option values
+    if (categoryEl) categoryEl.value = "All";
+    if (sortEl) sortEl.value = "Recommended";
+    if (farmEl) farmEl.value = "all";
+    if (locationEl) locationEl.value = "All";
+
+    render();
+  }
+
+  /**
    * Returns the selected sort value, normalized.
    * This keeps compatibility if UI labels ever change slightly.
    */
@@ -807,9 +823,18 @@
     // Sort
     list.sort((a, b) => compareProducts(a, b, sortValue));
 
+    const filtersBadgeHTML =`
+      <div class="d-flex flex-wrap gap-1 justify-content-center my-1">
+        ${category != "all" && category != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="category">${category}</span>`: ""} 
+        ${farmSelected != "all" && farmSelected != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="farm">${farmSelected}</span>`: ""} 
+        ${selectedLocation != "all" && selectedLocation != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="location">${selectedLocation}</span>`: ""} 
+      </div>
+    `
+
     productsHostEl.innerHTML = `
       <div class="cc-products-head">
         <small class="text-muted">Showing <b>${list.length}</b> of ${allProducts.length}</small>
+        ${filtersBadgeHTML}
         <small class="text-muted">Sorted by: ${CC.escapeHtml(sortValue)}</small>
       </div>
       ${list.length ? renderCards(list) : renderEmptyState(q, category)}
@@ -858,7 +883,7 @@
 
       CC.setStatus(
         pageStatusEl,
-        `Loaded ${allProducts.length} products`,
+        ``,
         "success",
       );
       render();
@@ -910,7 +935,7 @@
       return;
     }
 
-    CC.setStatus(pageStatusEl, `Added ${qty} to your cart ✓`, "success");
+    CC.setStatus(pageStatusEl, `Added ${qty} to your cart.`, "success");
   }
 
   /* ==========================================================================
@@ -924,6 +949,12 @@
     if (sortEl) sortEl.addEventListener("change", render);
     if (farmEl) farmEl.addEventListener("change", render);
     if (locationEl) locationEl.addEventListener("change", render);
+    const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+    if (clearFiltersBtn) clearFiltersBtn.addEventListener("click", clearAllFilters);
+    const clearFiltersBtnSm = document.getElementById("clearFiltersBtnSm");
+    if (clearFiltersBtnSm) clearFiltersBtnSm.addEventListener("click", clearAllFilters);  
+
+
 
     // ----- Product modal helpers -----
     const productModalEl = document.getElementById("productModal");
@@ -939,6 +970,8 @@
         null
       );
     }
+
+
 
     function openProductModalFor(product) {
       if (!productModalEl || !productModal || !product) return;
@@ -1001,8 +1034,6 @@
 
       // Qty defaults + limits
       const qtyEl = document.getElementById("productModalQty");
-      const qtyHelpEl = document.getElementById("productModalQtyHelp");
-      const statusEl = document.getElementById("productModalStatus");
 
       qtyEl.value = "1";
       qtyEl.min = "1";
@@ -1010,18 +1041,14 @@
       const maxStock = Number(stockRaw);
       if (Number.isFinite(maxStock) && maxStock > 0) {
         qtyEl.max = String(Math.floor(maxStock));
-        qtyHelpEl.textContent = `Max: ${Math.floor(maxStock)}`;
       } else {
         qtyEl.removeAttribute("max");
-        qtyHelpEl.textContent = "";
       }
 
-      statusEl.textContent = "";
 
       productModal.show();
     }
 
-    // ----- Click handling (image OR button opens modal, modal button adds) -----
     document.addEventListener("click", (e) => {
       // 1) Open modal
       const openHit = e.target.closest?.("[data-open-product]");
@@ -1063,6 +1090,19 @@
 
     // click handler for dynamic content
     document.addEventListener("click", async (e) => {
+      // Header filter badge reset
+      const badge = e.target.closest?.(".cc-filter-badge");
+      if (badge) {
+      const type = badge.dataset.reset;
+
+      if (type === "category" && categoryEl) categoryEl.value = "All";
+      if (type === "farm" && farmEl) farmEl.value = "all";
+      if (type === "location" && locationEl) locationEl.value = "All";
+
+      render();
+      return;
+      }
+
       const addBtn = e.target.closest?.("[data-add]");
       if (addBtn) {
         const productId = addBtn.getAttribute("data-add");
@@ -1156,14 +1196,14 @@
             CC.setStatus(
               pageStatusEl,
               `Removed from favorites: ${farmName || "Farm"}`,
-              "success",
+              "warning",
             );
           } else {
             favoriteFarmIdSet.add(farmId);
             if (farmName) favoriteFarmNames.push(farmName);
             CC.setStatus(
               pageStatusEl,
-              `Added to favorites: ${farmName || "Farm"}`,
+              ``,
               "success",
             );
           }

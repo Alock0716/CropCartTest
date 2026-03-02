@@ -169,6 +169,7 @@ body .cc-muted {
   border-radius: var(--cc-radius);
   box-shadow: var(--cc-shadow);
   padding: 18px;
+  max-height: fit-content;
 }
 
 .cc-card-ns {
@@ -621,6 +622,55 @@ body .cc-muted {
 /* Store product modal image (no inline styles)                                */
 /* -------------------------------------------------------------------------- */
 
+.cc-product-modal-grid {
+  align-items: stretch;
+}
+
+/* Make left and right cards feel consistent */
+.cc-product-modal-left,
+.cc-product-modal-right {
+  height: 100%;
+}
+
+/* Keep the image area visually balanced */
+.cc-product-modal-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+/* Price/Desc row spacing */
+.cc-product-modal-pdrow #productModalPrice {
+  font-weight: 900;
+  color: var(--cc-ink);
+}
+
+/* CTA alignment: unify heights */
+.cc-product-modal-cta input.form-control {
+  border-radius: 14px;
+  border-color: rgba(30, 91, 56, 0.22);
+  background: rgba(255, 255, 255, 0.7);
+  min-height: 44px;
+}
+
+.cc-product-modal-cta #productModalAddBtn {
+  min-height: 44px;
+}
+
+/* Category + Stock below the CTA */
+.cc-product-modal-badges {
+  padding-top: 10px;
+  border-top: 1px solid rgba(30, 91, 56, 0.12);
+}
+
+/* Make the provider row breathe a bit on narrow widths */
+.cc-product-modal-provider {
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .cc-product-modal-img {
   max-height: 520px;
   object-fit: contain;
@@ -630,6 +680,22 @@ body .cc-muted {
   height: 320px;
 }
 
+/* Store filters dropdown sizing */
+.cc-filter-dropdown{
+  min-width: 320px;
+  max-width: 92vw;
+}
+
+.cc-filter-badge {
+  background-color: #1e5b38;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cc-filter-badge:hover {
+  transform: translateY(-1px);
+  opacity: 0.85;
+}
 /* -------------------------------------------------------------------------- */
 /* Guest cart (rendered by cart.js)                                            */
 /* -------------------------------------------------------------------------- */

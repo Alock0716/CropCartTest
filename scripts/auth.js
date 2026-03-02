@@ -140,7 +140,7 @@
           if (result?.attempted) {
             CC.setStatus(
               statusEl,
-              `Signed in ✓  (synced ${result.synced}/${result.attempted} saved cart item(s))`,
+              ``,
               "success",
             );
           }
@@ -344,7 +344,7 @@
 
         CC.setStatus(
           statusEl,
-          `✅ Submitted! Your registration ID is ${regId ?? "(unknown)"} — you can check status on the right.`,
+          ``,
           "success",
         );
 
@@ -417,7 +417,7 @@
         const message = parsed.data?.message || "Status returned.";
 
         localStorage.setItem("cc_provider_registration_id", String(idNum));
-        CC.setStatus(resultEl, `✅ ${status}: ${message}`, "success");
+        CC.setStatus(resultEl, ``, "success");
       } catch (err) {
         CC.setStatus(
           resultEl,
@@ -474,7 +474,7 @@
           return;
         }
 
-        CC.setStatus(statusEl, `✅ ${msg}`, "success");
+        CC.setStatus(statusEl, ``, "success");
         form.reset();
       } catch (err) {
         CC.setStatus(
@@ -553,7 +553,7 @@
 
         CC.setStatus(
           statusEl,
-          "✅ Password reset successful. Sending you to login…",
+          "",
           "success",
         );
         setTimeout(() => (window.location.href = "login.html"), 800);

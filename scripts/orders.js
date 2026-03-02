@@ -498,7 +498,7 @@
     renderOrdersTable(view);
     CC.setStatus(
       pageStatusEl,
-      `Showing ${view.length} order${view.length === 1 ? "" : "s"}.`,
+      ``,
       "success",
     );
   }
@@ -611,7 +611,7 @@
     if (!failures.length) {
       CC.setStatus(
         pageStatusEl,
-        `Imported order #${orderId} into your cart.`,
+        ``,
         "success",
       );
       window.location.href = "cart.html?imported=1";
@@ -735,7 +735,7 @@
     if (url.searchParams.get("success") === "1") {
       CC.setStatus(
         pageStatusEl,
-        "Payment successful — your order is now in your history.",
+        "",
         "success",
       );
       url.searchParams.delete("success");

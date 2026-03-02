@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>CropCart • Store</title>
+    <link rel="shortcut icon" href="./Images/CCLogo1.ico" type="image/x-icon" />
 
     <!-- Bootstrap -->
     <link
@@ -116,60 +117,104 @@
                 />
               </div>
 
-              <div class="col-12 col-md-6 cc-select-wrapper">
-                <label class="form-label cc-label" for="productCategory"
-                  >Category Filter:</label
-                >
-                <select id="productCategory" class="form-select cc-select">
-                  <option>All</option>
-                  <option>Fruits & Vegetables</option>
-                  <option>Meat & Poultry</option>
-                  <option>Dairy & Eggs</option>
-                  <option>Grains & Bakery</option>
-                  <option>Herbs & Spices</option>
-                  <option>Honey & Preserves</option>
-                  <option>Beverages</option>
-                  <option>Other</option>
-                </select>
+              <div class="col-12 justify-content-between d-flex">
+                <div class="col-10">
+                  <button
+                    class="btn btn-outline-secondary cc-sort-toggle justify-content-center d-flex"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#ccSortPanel"
+                    aria-expanded="false"
+                    aria-controls="ccSortPanel"
+                  >
+                    <span class="d-inline-flex align-items-center gap-2">
+                      <i class="bi bi-arrow-down-up"></i>
+                      <span class="cc-sort-label">Sort/Filter</span>
+                    </span>
+                    <i class="bi bi-chevron-down cc-sort-chevron"></i>
+                  </button>
+                </div>
+                <div class="col-6 ms-5 m-2">
+                  <button
+                    id="clearFiltersBtn"
+                    class="btn btn-sm btn-outline-danger"
+                    type="button"
+                  >
+                    Clear filters
+                  </button>
+                </div>
               </div>
+               <!-- INLINE SORT EXPANDER -->
+              <div class="cc-sort-inline">
+                
+                <div id="ccSortPanel" class="collapse">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                   
+                  </div>
 
-              <div class="col-12 col-md-6 cc-select-wrapper">
-                <label class="form-label cc-label" for="productSort"
-                  >Sort By:</label
-                >
-                <select id="productSort" class="form-select cc-select">
-                  <option>Recommended</option>
-                  <option>Price: Low → High</option>
-                  <option>Price: High → Low</option>
-                  <option>Stock: High → Low</option>
-                  <option>Farm: A→Z</option>
-                  <option>Farm: Z→A</option>
-                  <option>Farm Location: A-Z</option>
-                  <option value="favorites">Favorite Farms</option>
-                </select>
-              </div>
+                  <div class="row g-3">
+                    <!-- Category -->
+                    <div class="col-12 cc-select-wrapper">
+                      <label class="form-label cc-label" for="productCategory">
+                        Category Filter:
+                      </label>
+                      <select id="productCategory" class="form-select cc-select">
+                        <option>All</option>
+                        <option>Fruits & Vegetables</option>
+                        <option>Meat & Poultry</option>
+                        <option>Dairy & Eggs</option>
+                        <option>Grains & Bakery</option>
+                        <option>Herbs & Spices</option>
+                        <option>Honey & Preserves</option>
+                        <option>Beverages</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
 
-              <!-- Farm Filter -->
-              <div class="col-12 col-md-6 cc-select-wrapper">
-                <label class="form-label cc-label" for="productFarm"
-                  >Filter By Farm:</label
-                >
-                <select id="productFarm" class="form-select cc-select">
-                  <option value="all">All Farms</option>
-                  <!-- store.js will populate the rest -->
-                </select>
-              </div>
+                    <div class="cc-sort-panel">
+                      <label class="form-label cc-label mb-1" for="productSort">Sort by</label>
 
-              <!-- Location filter -->
-              <div class="col-12 col-md-6 cc-select-wrapper">
-                <label class="form-label cc-label" for="productLocation"
-                  >Filter By Location:</label
-                >
-                <select id="productLocation" class="form-select cc-select">
-                  <option value="All">All locations</option>
-                  <!-- store.js auto-populates after products load -->
-                </select>
+                      <!-- KEEP THIS ID EXACTLY (store.js depends on it) -->
+                      <select id="productSort" class="form-select cc-select">
+                        <option>Recommended</option>
+                        <option>Price: Low → High</option>
+                        <option>Price: High → Low</option>
+                        <option>Stock: High → Low</option>
+                        <option>Farm: A→Z</option>
+                        <option>Farm: Z→A</option>
+                        <option>Farm Location: A-Z</option>
+                        <option value="favorites">Favorite Farms</option>
+                      </select>
+
+                      <div class="cc-sort-hint text-muted small mt-2">
+                        Tip: changing sort doesn’t clear your filters.
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Farm Filter -->
+                  <div class="col-12 cc-select-wrapper">
+                    <label class="form-label cc-label" for="productFarm">Filter By Farm:</label>
+                    <select id="productFarm" class="form-select cc-select">
+                      <option value="all">All Farms</option>
+                      <!-- store.js will populate the rest -->
+                    </select>
+                  </div>
+
+                  <!-- Location Filter -->
+                  <div class="col-12 cc-select-wrapper">
+                    <label class="form-label cc-label" for="productLocation">
+                      Filter By Location:
+                    </label>
+                    <select id="productLocation" class="form-select cc-select">
+                      <option value="All">All locations</option>
+                      <!-- store.js auto-populates after products load -->
+                    </select>
+                  </div>
+                </div>
               </div>
+            </div>
+            <!-- /dropdown END-->
             </div>
           </div>
         </div>
@@ -177,6 +222,10 @@
         <!-- Side card -->
         <div class="col-12 col-lg-4">
           <div class="cc-card h-100">
+            <div class="d-flex justify-content-center mb-2">
+              <h3>Favorite Farms</h3>
+            </div>
+
             <div id="favoriteFarmsHost" class="d-grid gap-2">
               <div class="alert alert-info text-muted small">
                 Sign in and favorite some farms to see them listed here.
@@ -242,10 +291,11 @@
           </div>
 
           <div class="modal-body">
-            <div class="row g-3">
+            <div class="row g-3 cc-product-modal-grid align-items-stretch">
+
               <!-- Left: Image -->
-              <div class="col-12 col-lg-6">
-                <div class="cc-card p-2">
+              <div class="col-12 col-lg-6 d-flex">
+                <div class="cc-card p-2 h-100 w-100 cc-product-modal-left">
                   <img
                     id="productModalImg"
                     class="img-fluid rounded w-100 cc-product-modal-img"
@@ -264,53 +314,39 @@
               </div>
 
               <!-- Right: Details + Qty -->
-              <div class="col-12 col-lg-6">
-                <div class="cc-card p-3 h-100">
-                  <div class="mb-2 d-flex align-items-center flex-column">
-                    <div class="d-flex gap-2 mb-2">
-                      <span
-                        class="badge rounded-pill text-bg-light cc-badge"
-                        id="productModalCategory"
-                        >Category</span
-                      >
-                      <span
-                        class="badge rounded-pill text-bg-light cc-badge"
-                        id="productModalStock"
-                        >Stock: —</span
-                      >
-                    </div>
+              <div class="col-12 col-lg-6 d-flex">
+                <div class="cc-card p-3 h-100 w-100 cc-product-modal-right d-flex flex-column">
 
+                  <!-- Provided by / Farm / Location (kept) -->
+                  <div class="mb-2 d-flex align-items-center flex-column">
                     <div class="fw-semibold mt-1">Provided by</div>
                   </div>
 
-                  <div class="d-flex justify-content-between">
-                    <div class="text-muted ms-5 px-5" id="productModalFarm">
-                      —
-                    </div>
-                    <div
-                      class="text-muted me-5 px-5"
-                      id="productModalLocation"
-                    ></div>
+                  <div class="d-flex justify-content-between cc-product-modal-provider">
+                    <div class="text-muted ms-5 px-5" id="productModalFarm">—</div>
+                    <div class="text-muted me-5 px-5" id="productModalLocation"></div>
                   </div>
 
                   <hr class="cc-hr" />
 
-                  <div class="mb-2">
-                    <div class="fw-semibold">Price</div>
-                    <div class="fs-5" id="productModalPrice">$0.00</div>
+                  <!-- Price + Description side-by-side -->
+                  <div class="row g-3 mb-2 cc-product-modal-pdrow">
+                    <div class="col-12 col-md-5">
+                      <div class="fw-semibold">Price</div>
+                      <div class="fs-5" id="productModalPrice">$0.00</div>
+                    </div>
+
+                    <div class="col-12 col-md-7">
+                      <div class="fw-semibold">Description</div>
+                      <div class="text-muted" id="productModalDesc">—</div>
+                    </div>
                   </div>
 
-                  <div class="mb-3">
-                    <div class="fw-semibold">Description</div>
-                    <div class="text-muted" id="productModalDesc">—</div>
-                  </div>
-
+                  <!-- Qty + Add -->
                   <div class="mt-auto">
-                    <div class="row g-2 align-items-end">
+                    <div class="row g-2 align-items-end cc-product-modal-cta">
                       <div class="col-12 col-sm-5">
-                        <label class="form-label mb-1" for="productModalQty"
-                          >Quantity</label
-                        >
+                        <label class="form-label mb-1" for="productModalQty">Quantity</label>
                         <input
                           id="productModalQty"
                           type="number"
@@ -320,7 +356,6 @@
                           step="1"
                           inputmode="numeric"
                         />
-                        <div class="form-text" id="productModalQtyHelp"></div>
                       </div>
 
                       <div class="col-12 col-sm-7 d-grid">
@@ -334,14 +369,28 @@
                       </div>
                     </div>
 
-                    <div
-                      class="small text-muted mt-2"
-                      id="productModalStatus"
-                    ></div>
+                    <!-- Category + Stock BELOW Add button -->
+                    <div class="d-flex gap-2 mt-3 justify-content-center flex-wrap cc-product-modal-badges">
+                      <span
+                        class="badge rounded-pill text-bg-light cc-badge"
+                        id="productModalCategory"
+                      >Category</span>
+
+                      <span
+                        class="badge rounded-pill text-bg-light cc-badge"
+                        id="productModalStock"
+                      >Stock: —</span>
+                    </div>
+
+                    <!-- Status (kept) -->
+                    <div class="small text-muted mt-2" id="productModalStatus"></div>
                   </div>
+
                 </div>
               </div>
+
             </div>
+          </div>
           </div>
         </div>
       </div>
