@@ -445,7 +445,7 @@
   async function fetchStripeAccountState() {
     const urls = [
       `${ROOT_BASE}/farmer/stripe/account/`,
-      `${ROOT_BASE}/farmer/stripe/account`,
+      `${ROOT_BASE}/farmer/stripe/account/`,
     ];
 
     let lastErr = null;
@@ -484,7 +484,7 @@
   async function startStripeOnboarding() {
     // Backend attempt
     {
-      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/`, {
         method: "POST",
         headers: authHeaders({ Accept: "application/json" }),
       });
@@ -526,7 +526,7 @@
   async function openStripeDashboard() {
     // Backend attempt
     {
-      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/dashboard`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/dashboard/`, {
         method: "POST",
         headers: authHeaders({ Accept: "application/json" }),
       });
@@ -540,7 +540,7 @@
 
     // Helper fallback
     if (API_STRIPE) {
-      const res = await fetch(`${API_STRIPE}/stripe/account`, {
+      const res = await fetch(`${API_STRIPE}/stripe/account/`, {
         method: "GET",
         headers: authHeaders({ Accept: "application/json" }),
       });
