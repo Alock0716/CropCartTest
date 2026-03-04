@@ -139,34 +139,39 @@
   // AUTH HELPERS (EXACT BLOCK YOU PROVIDED)
   // ==========================================================================
 
-  /**
-   * Reads provider auth from storage if it exists.
-   * We use this FIRST because farmer endpoints likely require provider credentials.
-   */
-  function getProviderAuth() {
-    try {
-      const s = sessionStorage.getItem("cc_farmer_auth");
-      const l = localStorage.getItem("cc_farmer_auth");
-      return JSON.parse(s || l || "null");
-    } catch {
-      return null;
+    function hasProviderRole() {
+      const auth = window.CC?.auth?.getAuth?.() || null;
+      return Boolean(auth?.access && auth?.user?.role === "provider");
     }
-  }
+
+    function requireProviderAuth(actionLabel = "This action") {
+      if (hasProviderRole()) return true;
+
+      setStatus(
+        `${actionLabel} requires a provider login. ` +
+          `You're either logged out, or your account isn't a provider.`,
+        "danger",
+      );
+
+      return false;
+    }
 
   /**
    * Reads customer auth from your existing auth.js storage.
    * auth.js stores "cc_auth" and the token field is "access".
    */
-  function getCustomerAuth() {
-    if (typeof getAuth === "function") return getAuth(); // uses cc_auth internally
-    try {
-      const s = sessionStorage.getItem("cc_auth");
-      const l = localStorage.getItem("cc_auth");
-      return JSON.parse(s || l || "null");
-    } catch {
-      return null;
+    function getCustomerAuth() {
+      // utils.js exposes getAuth here, not as a global function
+      if (window.CC?.auth?.getAuth) return window.CC.auth.getAuth();
+
+      try {
+        const s = sessionStorage.getItem("cc_auth");
+        const l = localStorage.getItem("cc_auth");
+        return JSON.parse(s || l || "null");
+      } catch {
+        return null;
+      }
     }
-  }
 
   /**
    * Picks the best access token available:
@@ -178,6 +183,7 @@
     if (provider?.access) return String(provider.access);
 
     const customer = getCustomerAuth();
+    // allow provider logged in via cc_auth
     if (customer?.access) return String(customer.access);
 
     return "";
