@@ -136,8 +136,41 @@
   }
 
   // ==========================================================================
-  // AUTH HELPERS (EXACT BLOCK YOU PROVIDED)
+  // AUTH HELPERS
   // ==========================================================================
+
+    /**
+     * Returns provider authentication if present.
+     * Supports both:
+     *   - cc_farmer_auth (dedicated provider auth)
+     *   - cc_auth where user.role === "provider"
+     */
+    function getProviderAuth() {
+      try {
+        // Check dedicated farmer auth first
+        const farmerSession = sessionStorage.getItem("cc_farmer_auth");
+        const farmerLocal = localStorage.getItem("cc_farmer_auth");
+
+        const farmer = JSON.parse(farmerSession || farmerLocal || "null");
+        if (farmer?.access) return farmer;
+
+        // Fallback to normal auth
+        const authSession = sessionStorage.getItem("cc_auth");
+        const authLocal = localStorage.getItem("cc_auth");
+
+        const auth = JSON.parse(authSession || authLocal || "null");
+
+        // Only return if provider role
+        if (auth?.access && auth?.user?.role === "provider") {
+          return auth;
+        }
+
+        return null;
+
+      } catch {
+        return null;
+      }
+    }
 
     function hasProviderRole() {
       const auth = window.CC?.auth?.getAuth?.() || null;
