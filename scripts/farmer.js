@@ -497,7 +497,7 @@
   async function createStripeOnboardingUrl() {
     // Try backend
     {
-      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/onboarding`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account`, {
         method: "POST",
         headers: authHeaders({ Accept: "application/json" }),
       });
@@ -539,7 +539,7 @@
   async function createStripeDashboardUrl() {
     // Try backend
     {
-      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/dashboard`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account`, {
         method: "POST",
         headers: authHeaders({ Accept: "application/json" }),
       });
