@@ -14,10 +14,10 @@
  * - CFG.API_URL exists (ex: https://.../api)
  * - ROOT_BASE is API_URL without trailing /api
  * - Farmer endpoints live under /farmer/*
- * - Stripe status endpoint exists at /farmers/stripe/account (trailing slash maybe)
+ * - Stripe status endpoint exists at /farmer/stripe/account (trailing slash maybe)
  * - Stripe onboarding/dashboard link endpoints may exist on backend:
- *     POST /farmers/stripe/account/onboarding  -> { url }
- *     POST /farmers/stripe/account/dashboard   -> { url }
+ *     POST /farmer/stripe/account/onboarding  -> { url }
+ *     POST /farmer/stripe/account/dashboard   -> { url }
  *   If those are missing, but CFG.STRIPE_API_URL exists, we fall back to helper server.
  * ============================================================================
  */
@@ -405,8 +405,8 @@
    */
   async function fetchStripeAccountState() {
     const urls = [
-      `${ROOT_BASE}/farmers/stripe/account/`,
-      `${ROOT_BASE}/farmers/stripe/account`,
+      `${ROOT_BASE}/farmer/stripe/account/`,
+      `${ROOT_BASE}/farmer/stripe/account`,
     ];
 
     let lastErr = null;
@@ -439,13 +439,13 @@
 
   /**
    * Prefer backend onboarding endpoint:
-   *   POST /farmers/stripe/account/onboarding -> { url }
+   *   POST /farmer/stripe/account/onboarding -> { url }
    * Fallback to helper server if configured.
    */
   async function startStripeOnboarding() {
     // Backend attempt
     {
-      const res = await fetch(`${ROOT_BASE}/farmers/stripe/account/onboarding`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account`, {
         method: "POST",
         headers: authHeaders({ Accept: "application/json" }),
       });
@@ -481,13 +481,13 @@
 
   /**
    * Prefer backend dashboard endpoint:
-   *   POST /farmers/stripe/account/dashboard -> { url }
+   *   POST /farmer/stripe/account/dashboard -> { url }
    * Fallback to helper server if configured.
    */
   async function openStripeDashboard() {
     // Backend attempt
     {
-      const res = await fetch(`${ROOT_BASE}/farmers/stripe/account/dashboard`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/dashboard`, {
         method: "POST",
         headers: authHeaders({ Accept: "application/json" }),
       });
