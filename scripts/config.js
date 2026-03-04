@@ -20,7 +20,7 @@ window.__CROPCART_CONFIG__ = {
   API_URL: "https://d1nnhq1iqs57tb.cloudfront.net/api",
 
   // Stripe Connect helper server (local)
-  STRIPE_API_URL: "http://127.0.0.1:4242/api/stripe/connect/",
+  STRIPE_API_URL: "http://3.142.227.162/farmer",
 
   // --------------------------------------------------------------------------
   // Stripe Client
