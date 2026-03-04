@@ -32,7 +32,7 @@
   const ROOT_BASE = API_BASE.replace(/\/api$/i, ""); // e.g. https://domain.com
 
   // Optional local Stripe helper server base (if still used)
-  const API_STRIPE = String(CFG.STRIPE_API_URL || "").replace(/\/+$/, "");
+  const API_STRIPE = ROOT_BASE+"/farmer";
 
   // ==========================================================================
   // DOM (IDs must match farmer.html)
