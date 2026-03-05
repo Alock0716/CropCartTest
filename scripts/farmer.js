@@ -645,7 +645,7 @@
     // If your API supports a farm profile endpoint, you can wire it here.
     // Keeping existing behavior: silent if endpoint isn't present.
     try {
-      const res = await fetch(`${ROOT_BASE}/farmer/profile/`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/account/`, {
         method: "GET",
         headers: authHeaders({ Accept: "application/json" }),
       });
