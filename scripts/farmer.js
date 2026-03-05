@@ -464,54 +464,31 @@
    * If none of these exist, you need to confirm the backend route name.
    */
   async function getStripeLinkOutUrl() {
-    // Keep this list tight; add the REAL one once you confirm it.
-    const candidates = [
-      // Common patterns for creating an account link / portal link
-      `${ROOT_BASE}/farmer/stripe/link/`,
-      `${ROOT_BASE}/farmer/stripe/link`,
-      `${ROOT_BASE}/farmer/stripe/connect/`,
-      `${ROOT_BASE}/farmer/stripe/connect`,
-      `${ROOT_BASE}/farmer/stripe/portal/`,
-      `${ROOT_BASE}/farmer/stripe/portal`,
-      `${ROOT_BASE}/farmer/stripe/dashboard/`,
-      `${ROOT_BASE}/farmer/stripe/dashboard`,
-      `${ROOT_BASE}/farmer/stripe/account/link/`,
-      `${ROOT_BASE}/farmer/stripe/account/link`,
-      `${ROOT_BASE}/farmer/stripe/account/dashboard/`,
-      `${ROOT_BASE}/farmer/stripe/account/dashboard`,
-    ];
+    const url = `${ROOT_BASE}/farmer/stripe/onboarding/`;
 
-    let lastErr = null;
+    // Most APIs generate a fresh account link with POST
+    const res = await fetch(url, {
+      method: "POST",
+      headers: authHeaders({ Accept: "application/json" }),
+    });
 
-    for (const url of candidates) {
-      try {
-        // POST first (fresh link)
-        let res = await fetch(url, {
-          method: "POST",
-          headers: authHeaders({ Accept: "application/json" }),
-        });
+    const parsed = await readJsonOrText(res);
 
-        if (res.status !== 404) {
-          const parsed = await readJsonOrText(res);
-          if (parsed.ok && parsed.data?.url) return String(parsed.data.url);
-        }
-
-        // Then GET (some APIs just return an existing link)
-        res = await fetch(url, {
-          method: "GET",
-          headers: authHeaders({ Accept: "application/json" }),
-        });
-
-        if (res.status !== 404) {
-          const parsed = await readJsonOrText(res);
-          if (parsed.ok && parsed.data?.url) return String(parsed.data.url);
-        }
-      } catch (e) {
-        lastErr = e;
-      }
+    if (!parsed.ok) {
+      console.log("Stripe onboarding link error:", parsed.status, parsed.data ?? parsed.raw);
+      throw new Error(
+        parsed.data?.detail ||
+          parsed.data?.error ||
+          `Stripe link failed (HTTP ${parsed.status})`,
+      );
     }
 
-    throw lastErr || new Error("No Stripe link-out endpoint returned {url}.");
+    if (!parsed.data?.url) {
+      console.log("Stripe onboarding response missing url:", parsed.data);
+      throw new Error("Stripe onboarding endpoint did not return { url }.");
+    }
+
+    return String(parsed.data.url);
   }
 
   /**
