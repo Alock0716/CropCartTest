@@ -464,7 +464,7 @@
    * If none of these exist, you need to confirm the backend route name.
    */
   async function getStripeLinkOutUrl() {
-    const url = `${ROOT_BASE}/farmer/stripe/account/`;
+    const url = `${ROOT_BASE}/farmer/stripe/onboarding/`;
 
     // Most APIs generate a fresh account link with POST
     const res = await fetch(url, {
