@@ -468,7 +468,7 @@
 
     // Most APIs generate a fresh account link with POST
     const res = await fetch(url, {
-      method: "POST",
+      method: "GET",
       headers: authHeaders({ Accept: "application/json" }),
     });
 
