@@ -640,30 +640,6 @@
       .join("");
   }
 
-  async function loadFarmProfile() {
-    // Title personalization: optional.
-    // If your API supports a farm profile endpoint, you can wire it here.
-    // Keeping existing behavior: silent if endpoint isn't present.
-    try {
-      const res = await fetch(`${ROOT_BASE}/farmer/account/`, {
-        method: "GET",
-        headers: authHeaders({ Accept: "application/json" }),
-      });
-
-      const parsed = await readJsonOrText(res);
-      if (!parsed.ok) return;
-
-      const name =
-        parsed.data?.farm_name ||
-        parsed.data?.name ||
-        parsed.data?.farm?.name ||
-        "";
-
-      if (name && farmerPortalTitle) farmerPortalTitle.textContent = `${name} — Farmer Portal`;
-    } catch {
-      // No-op: page must still function without this endpoint
-    }
-  }
 
   // ==========================================================================
   // PRODUCT CRUD
@@ -931,7 +907,6 @@
   document.addEventListener("DOMContentLoaded", async () => {
     wireEvents();
 
-    await loadFarmProfile();
     await loadInventory();
     await loadOrders();
 
