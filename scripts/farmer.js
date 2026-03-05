@@ -2,23 +2,22 @@
  * ============================================================================
  * farmer.js — Farmer Portal logic (FULL REPLACEMENT)
  * ----------------------------------------------------------------------------
- * What this version does (per your request):
- * - Uses your provided AUTH HELPERS block (provider first, customer fallback)
- * - Adds a provider-guard so farmer-only endpoints don't accidentally use cc_auth
- * - Implements Stripe Connect button behavior using ONLY the status fields:
- *    { connected, stripe_account_id, charges_enabled, payouts_enabled, details_submitted }
- *   -> and the "format" you requested:
- *      handleStripeConnection() decides which action to take.
+ * This version does exactly what you asked:
+ * - Fixes token detection (uses cc_auth in sessionStorage/localStorage)
+ * - Treats provider users stored in cc_auth as valid provider auth
+ * - Uses the CORRECT Stripe status endpoint you discovered:
+ *     GET /farmer/stripe/account/   (works)
+ * - Stripe button: "skip the onboarding logic" and just LINK OUT:
+ *     click -> try a small set of link endpoints -> open returned {url}
  *
- * Assumptions (same as your project):
- * - CFG.API_URL exists (ex: https://.../api)
- * - ROOT_BASE is API_URL without trailing /api
- * - Farmer endpoints live under /farmer/*
- * - Stripe status endpoint exists at /farmer/stripe/account (trailing slash maybe)
- * - Stripe onboarding/dashboard link endpoints may exist on backend:
- *     POST /farmer/stripe/account/onboarding  -> { url }
- *     POST /farmer/stripe/account/dashboard   -> { url }
- *   If those are missing, but CFG.STRIPE_API_URL exists, we fall back to helper server.
+ * IMPORTANT:
+ * - You cannot safely build a Stripe Connect URL in the browser.
+ * - One of the "link endpoints" MUST exist server-side and return { url }.
+ * - We DO NOT POST to /farmer/stripe/account (that was 500 for you).
+ *
+ * NOTE ON "Unexpected token export":
+ * - That error is from some OTHER JS file being loaded as non-module.
+ * - This farmer.js is plain script (no export/import) so it won't cause that.
  * ============================================================================
  */
 
@@ -31,14 +30,17 @@
 
   const CFG = window.__CROPCART_CONFIG__ || {};
 
-  // API base (usually ends with /api)
+  /**
+   * Base API URL (usually ends in /api) set in config.js
+   * Example: https://d1nnhq1iqs57tb.cloudfront.net/api
+   */
   const API_BASE = String(CFG.API_URL || "").replace(/\/+$/, "");
 
-  // Root base (strip trailing /api)
+  /**
+   * Root base URL (strip trailing /api)
+   * Example: https://d1nnhq1iqs57tb.cloudfront.net
+   */
   const ROOT_BASE = API_BASE.replace(/\/api$/i, "");
-
-  // Optional helper Stripe server (old flow)
-  const API_STRIPE = String(CFG.STRIPE_API_URL || "").replace(/\/+$/, "");
 
   // ==========================================================================
   // DOM (IDs must match farmer.html)
@@ -136,87 +138,70 @@
   }
 
   // ==========================================================================
-  // AUTH HELPERS
+  // AUTH HELPERS (robust + matches your actual storage)
   // ==========================================================================
 
-    /**
-     * Returns provider authentication if present.
-     * Supports both:
-     *   - cc_farmer_auth (dedicated provider auth)
-     *   - cc_auth where user.role === "provider"
-     */
-    function getProviderAuth() {
-      try {
-        // Check dedicated farmer auth first
-        const farmerSession = sessionStorage.getItem("cc_farmer_auth");
-        const farmerLocal = localStorage.getItem("cc_farmer_auth");
-
-        const farmer = JSON.parse(farmerSession || farmerLocal || "null");
-        if (farmer?.access) return farmer;
-
-        // Fallback to normal auth
-        const authSession = sessionStorage.getItem("cc_auth");
-        const authLocal = localStorage.getItem("cc_auth");
-
-        const auth = JSON.parse(authSession || authLocal || "null");
-
-        // Only return if provider role
-        if (auth?.access && auth?.user?.role === "provider") {
-          return auth;
-        }
-
-        return null;
-
-      } catch {
-        return null;
-      }
-    }
-
-    function hasProviderRole() {
-      const auth = window.CC?.auth?.getAuth?.() || null;
-      return Boolean(auth?.access && auth?.user?.role === "provider");
-    }
-
-    function requireProviderAuth(actionLabel = "This action") {
-      if (hasProviderRole()) return true;
-
-      setStatus(
-        `${actionLabel} requires a provider login. ` +
-          `You're either logged out, or your account isn't a provider.`,
-        "danger",
-      );
-
-      return false;
-    }
-
   /**
-   * Reads customer auth from your existing auth.js storage.
-   * auth.js stores "cc_auth" and the token field is "access".
+   * Reads JSON from storage safely.
+   * @param {Storage} store
+   * @param {string} key
+   * @returns {any|null}
    */
-    function getCustomerAuth() {
-      // utils.js exposes getAuth here, not as a global function
-      if (window.CC?.auth?.getAuth) return window.CC.auth.getAuth();
-
-      try {
-        const s = sessionStorage.getItem("cc_auth");
-        const l = localStorage.getItem("cc_auth");
-        return JSON.parse(s || l || "null");
-      } catch {
-        return null;
-      }
+  function readStoreJson(store, key) {
+    try {
+      const raw = store.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
     }
+  }
 
   /**
-   * Picks the best access token available:
-   * - provider token first
-   * - customer token fallback
+   * Provider auth may be stored as:
+   * - cc_farmer_auth (dedicated)
+   * - OR cc_auth where user.role === "provider" (your current reality)
+   */
+  function getProviderAuth() {
+    // Dedicated farmer auth first
+    const farmer =
+      readStoreJson(sessionStorage, "cc_farmer_auth") ||
+      readStoreJson(localStorage, "cc_farmer_auth");
+
+    if (farmer?.access) return farmer;
+
+    // Fallback to cc_auth (only if provider role)
+    const auth =
+      (window.CC?.auth?.getAuth ? window.CC.auth.getAuth() : null) ||
+      readStoreJson(sessionStorage, "cc_auth") ||
+      readStoreJson(localStorage, "cc_auth");
+
+    if (auth?.access && auth?.user?.role === "provider") return auth;
+
+    return null;
+  }
+
+  /**
+   * "Customer auth" is just cc_auth, regardless of role.
+   * We still read it, because your site uses cc_auth everywhere.
+   */
+  function getCustomerAuth() {
+    return (
+      (window.CC?.auth?.getAuth ? window.CC.auth.getAuth() : null) ||
+      readStoreJson(sessionStorage, "cc_auth") ||
+      readStoreJson(localStorage, "cc_auth")
+    );
+  }
+
+  /**
+   * Picks best access token:
+   * - provider token preferred
+   * - otherwise cc_auth token
    */
   function getBestAccessToken() {
     const provider = getProviderAuth();
     if (provider?.access) return String(provider.access);
 
     const customer = getCustomerAuth();
-    // allow provider logged in via cc_auth
     if (customer?.access) return String(customer.access);
 
     return "";
@@ -243,24 +228,18 @@
     }
   }
 
-  // ==========================================================================
-  // PROVIDER GUARDS (so /farmer/* doesn't use cc_auth fallback)
-  // ==========================================================================
-
-  function hasProviderToken() {
-    const provider = getProviderAuth();
-    return Boolean(provider?.access);
-  }
-
+  /**
+   * Farmer-only routes should require provider role
+   */
   function requireProviderAuth(actionLabel = "This action") {
-    if (hasProviderToken()) return true;
+    const provider = getProviderAuth();
+    if (provider?.access) return true;
 
     setStatus(
-      `${actionLabel} requires a Farmer/Provider login. ` +
-        `Your provider token (cc_farmer_auth) is missing or expired.`,
+      `${actionLabel} requires a Provider login. ` +
+        `You're logged out or not recognized as a provider.`,
       "danger",
     );
-
     return false;
   }
 
@@ -359,20 +338,15 @@
     }
 
     const idValue = p.id ?? p.product_id;
-    const nameValue = p.name ?? "";
-    const descValue = p.description ?? "";
-    const categoryValue = p.category ?? "other";
-    const priceValue = p.price ?? "";
-    const stockValue = p.stock ?? 0;
-    const isActiveValue = typeof p.is_active === "boolean" ? p.is_active : true;
 
     epId.value = String(idValue);
-    epName.value = String(nameValue);
-    epDescription.value = String(descValue);
-    epCategory.value = String(categoryValue);
-    epPrice.value = String(priceValue);
-    epStock.value = String(stockValue);
-    epIsActive.checked = !!isActiveValue;
+    epName.value = String(p.name ?? "");
+    epDescription.value = String(p.description ?? "");
+    epCategory.value = String(p.category ?? "other");
+    epPrice.value = String(p.price ?? "");
+    epStock.value = String(p.stock ?? 0);
+    epIsActive.checked =
+      typeof p.is_active === "boolean" ? p.is_active : true;
 
     epPhoto.value = "";
 
@@ -420,7 +394,11 @@
 
       const parsed = await readJsonOrText(res);
       if (!parsed.ok) {
-        console.log("Update product failed:", parsed.status, parsed.data ?? parsed.raw);
+        console.log(
+          "Update product failed:",
+          parsed.status,
+          parsed.data ?? parsed.raw,
+        );
         setEditStatus(`Save failed (HTTP ${parsed.status})`, "danger");
         return;
       }
@@ -435,17 +413,17 @@
   }
 
   // ==========================================================================
-  // STRIPE CONNECT — STATUS + ACTIONS (YOUR REQUESTED FORMAT)
+  // STRIPE — STATUS (GET) + LINK-OUT (no onboarding logic)
   // ==========================================================================
 
   /**
-   * Fetch stripe status.
-   * Tries trailing slash first (common backend requirement).
+   * You verified this exists:
+   *   GET /farmer/stripe/account/
    */
   async function fetchStripeAccountState() {
     const urls = [
       `${ROOT_BASE}/farmer/stripe/account/`,
-      `${ROOT_BASE}/farmer/stripe/account/`,
+      `${ROOT_BASE}/farmer/stripe/account`,
     ];
 
     let lastErr = null;
@@ -457,195 +435,135 @@
           headers: authHeaders({ Accept: "application/json" }),
         });
 
+        // If 404, try the next variant
         if (res.status === 404) continue;
 
         const parsed = await readJsonOrText(res);
         if (!parsed.ok) {
           throw new Error(
-            parsed.data?.error ||
-              `Stripe account status failed (HTTP ${parsed.status})`,
+            parsed.data?.detail ||
+              parsed.data?.error ||
+              `Stripe status failed (HTTP ${parsed.status})`,
           );
         }
 
         return parsed.data || {};
-      } catch (err) {
-        lastErr = err;
+      } catch (e) {
+        lastErr = e;
       }
     }
 
-    throw lastErr || new Error("Stripe account status endpoint not found.");
+    throw lastErr || new Error("Stripe status endpoint not found.");
   }
 
   /**
-   * Prefer backend onboarding endpoint:
-   *   POST /farmer/stripe/account/onboarding -> { url }
-   * Fallback to helper server if configured.
+   * Link-out URL generator:
+   * We try a SMALL list of likely endpoints that should return { url }.
+   * You told me: "no onboarding, just skip to the link out".
+   *
+   * If none of these exist, you need to confirm the backend route name.
    */
-  async function startStripeOnboarding() {
-    // Backend attempt
-    {
-      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/`, {
-        method: "POST",
-        headers: authHeaders({ Accept: "application/json" }),
-      });
+  async function getStripeLinkOutUrl() {
+    // Keep this list tight; add the REAL one once you confirm it.
+    const candidates = [
+      // Common patterns for creating an account link / portal link
+      `${ROOT_BASE}/farmer/stripe/link/`,
+      `${ROOT_BASE}/farmer/stripe/link`,
+      `${ROOT_BASE}/farmer/stripe/connect/`,
+      `${ROOT_BASE}/farmer/stripe/connect`,
+      `${ROOT_BASE}/farmer/stripe/portal/`,
+      `${ROOT_BASE}/farmer/stripe/portal`,
+      `${ROOT_BASE}/farmer/stripe/dashboard/`,
+      `${ROOT_BASE}/farmer/stripe/dashboard`,
+      `${ROOT_BASE}/farmer/stripe/account/link/`,
+      `${ROOT_BASE}/farmer/stripe/account/link`,
+      `${ROOT_BASE}/farmer/stripe/account/dashboard/`,
+      `${ROOT_BASE}/farmer/stripe/account/dashboard`,
+    ];
 
-      const parsed = await readJsonOrText(res);
-      if (parsed.ok && parsed.data?.url) {
-        window.location.href = String(parsed.data.url);
-        return;
+    let lastErr = null;
+
+    for (const url of candidates) {
+      try {
+        // POST first (fresh link)
+        let res = await fetch(url, {
+          method: "POST",
+          headers: authHeaders({ Accept: "application/json" }),
+        });
+
+        if (res.status !== 404) {
+          const parsed = await readJsonOrText(res);
+          if (parsed.ok && parsed.data?.url) return String(parsed.data.url);
+        }
+
+        // Then GET (some APIs just return an existing link)
+        res = await fetch(url, {
+          method: "GET",
+          headers: authHeaders({ Accept: "application/json" }),
+        });
+
+        if (res.status !== 404) {
+          const parsed = await readJsonOrText(res);
+          if (parsed.ok && parsed.data?.url) return String(parsed.data.url);
+        }
+      } catch (e) {
+        lastErr = e;
       }
     }
 
-    // Helper fallback
-    if (API_STRIPE) {
-      const res = await fetch(`${API_STRIPE}/stripe/account/`, {
-        method: "GET",
-        headers: authHeaders({ Accept: "application/json" }),
-      });
-
-      const parsed = await readJsonOrText(res);
-      if (!parsed.ok) {
-        throw new Error(
-          parsed.data?.error ||
-            `Stripe Connect start failed (HTTP ${parsed.status})`,
-        );
-      }
-      if (!parsed.data?.url) throw new Error("No onboarding URL returned.");
-      window.location.href = String(parsed.data.url);
-      return;
-    }
-
-    throw new Error("No onboarding endpoint available.");
+    throw lastErr || new Error("No Stripe link-out endpoint returned {url}.");
   }
 
   /**
-   * Prefer backend dashboard endpoint:
-   *   POST /farmer/stripe/account/dashboard -> { url }
-   * Fallback to helper server if configured.
+   * Stripe button: always link out (no branching).
+   * We still fetch status on load to show a helpful message, but it won't block linking.
    */
-  async function openStripeDashboard() {
-    // Backend attempt
-    {
-      const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/dashboard/`, {
-        method: "POST",
-        headers: authHeaders({ Accept: "application/json" }),
-      });
+  async function linkOutToStripe() {
+    if (!requireProviderAuth("Stripe access")) return;
 
-      const parsed = await readJsonOrText(res);
-      if (parsed.ok && parsed.data?.url) {
-        window.open(String(parsed.data.url), "_blank", "noopener,noreferrer");
-        return;
-      }
-    }
+    // Try to link out even if status is weird; status is informational only.
+    const url = await getStripeLinkOutUrl();
 
-    // Helper fallback
-    if (API_STRIPE) {
-      const res = await fetch(`${API_STRIPE}/stripe/account/`, {
-        method: "GET",
-        headers: authHeaders({ Accept: "application/json" }),
-      });
-
-      const parsed = await readJsonOrText(res);
-      if (!parsed.ok) {
-        throw new Error(
-          parsed.data?.error ||
-            `Stripe dashboard failed (HTTP ${parsed.status})`,
-        );
-      }
-      if (!parsed.data?.url) throw new Error("No dashboard URL returned.");
-      window.open(String(parsed.data.url), "_blank", "noopener,noreferrer");
-      return;
-    }
-
-    throw new Error("No dashboard endpoint available.");
+    // New tab is safer for external portals
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  /**
-   * YOUR REQUESTED DECIDER:
-   * Uses ONLY the stripe status fields to decide what to do.
-   */
-  async function handleStripeConnection() {
-    const status = await fetchStripeAccountState();
-
-    // Keep button/status text in sync (optional)
-    updateStripeUiFromState(status);
-
-    // If not connected, start onboarding
-    if (!status.connected) {
-      await startStripeOnboarding();
-      return;
-    }
-
-    // Connected but onboarding not finished
-    if (status.connected && !status.details_submitted) {
-      await startStripeOnboarding();
-      return;
-    }
-
-    // Details submitted but not fully enabled
-    if (
-      status.details_submitted &&
-      (!status.charges_enabled || !status.payouts_enabled)
-    ) {
-      await startStripeOnboarding();
-      return;
-    }
-
-    // Fully enabled
-    if (status.charges_enabled && status.payouts_enabled) {
-      await openStripeDashboard();
-      return;
-    }
-
-    // Catch-all fallback (safe)
-    await startStripeOnboarding();
-  }
-
-  /**
-   * Optional UI helper: updates Stripe status box + button label based on state.
-   * Uses ONLY: connected/details_submitted/charges_enabled/payouts_enabled/account_id
-   */
-  function updateStripeUiFromState(status) {
+  async function refreshStripeUi() {
     if (!connectStripeBtn) return;
 
-    const connected = Boolean(status?.connected);
-    const acctId = status?.stripe_account_id ? String(status.stripe_account_id) : "";
-    const details = Boolean(status?.details_submitted);
-    const charges = Boolean(status?.charges_enabled);
-    const payouts = Boolean(status?.payouts_enabled);
-
-    // Default
     connectStripeBtn.disabled = false;
+    connectStripeBtn.textContent = "Open Stripe";
 
-    if (!connected) {
-      connectStripeBtn.textContent = "Connect Stripe";
-      setStripeStatus("Stripe not connected yet.", "muted");
-      return;
-    }
+    try {
+      const s = await fetchStripeAccountState();
 
-    if (!details) {
-      connectStripeBtn.textContent = "Finish Stripe Setup";
+      const connected = Boolean(s?.connected);
+      const acctId = s?.stripe_account_id ? String(s.stripe_account_id) : "";
+      const details = Boolean(s?.details_submitted);
+      const charges = Boolean(s?.charges_enabled);
+      const payouts = Boolean(s?.payouts_enabled);
+
+      if (!connected) {
+        setStripeStatus("Stripe not connected yet (server reports not connected).", "warning");
+        return;
+      }
+
+      if (!details || !charges || !payouts) {
+        setStripeStatus(
+          `Stripe connected${acctId ? ` (${acctId})` : ""}, but setup isn't fully enabled yet.`,
+          "warning",
+        );
+        return;
+      }
+
       setStripeStatus(
-        `Stripe connected${acctId ? ` (${acctId})` : ""}, but onboarding is not finished.`,
-        "warning",
+        `Stripe fully enabled${acctId ? ` (${acctId})` : ""}.`,
+        "success",
       );
-      return;
+    } catch (e) {
+      // Don’t block the button; just show a note.
+      setStripeStatus("Stripe status unavailable (still can try Open Stripe).", "danger");
     }
-
-    if (!charges || !payouts) {
-      connectStripeBtn.textContent = "Review Stripe Requirements";
-      setStripeStatus(
-        `Stripe setup submitted${acctId ? ` (${acctId})` : ""}. Waiting for charges/payouts to be enabled.`,
-        "warning",
-      );
-      return;
-    }
-
-    connectStripeBtn.textContent = "Open Stripe Dashboard";
-    setStripeStatus(
-      `Stripe fully enabled${acctId ? ` (${acctId})` : ""}.`,
-      "success",
-    );
   }
 
   // ==========================================================================
@@ -671,7 +589,6 @@
     if (!parsed.ok) {
       console.log("Inventory error:", parsed.status, parsed.data ?? parsed.raw);
       setStatus(`Inventory failed (HTTP ${parsed.status})`, "danger");
-
       inventory = [];
       renderInventory();
       return;
@@ -683,29 +600,6 @@
 
     renderInventory();
     setStatus("", "success");
-  }
-
-  async function loadFarmProfile() {
-    try {
-      const res = await fetch(`${ROOT_BASE}/farms/`, {
-        method: "GET",
-        headers: authHeaders({ Accept: "application/json" }),
-      });
-
-      const parsed = await readJsonOrText(res);
-      if (!parsed.ok || !Array.isArray(parsed.data)) return;
-
-      const ownedFarm = parsed.data.find((f) => f.is_owner === true);
-      if (!ownedFarm) return;
-
-      const farmName = String(ownedFarm.name || "").trim();
-      if (!farmName) return;
-
-      if (farmerPortalTitle) farmerPortalTitle.textContent = `${farmName}'s Farmer Portal`;
-      document.title = `${farmName} | Farmer Portal`;
-    } catch (err) {
-      console.warn("loadFarmProfile failed:", err);
-    }
   }
 
   async function loadOrders() {
@@ -727,7 +621,6 @@
     if (!parsed.ok) {
       console.log("Orders error:", parsed.status, parsed.data ?? parsed.raw);
       setStatus(`Orders failed (HTTP ${parsed.status})`, "danger");
-
       orders = [];
       renderOrders();
       return;
@@ -739,6 +632,31 @@
 
     renderOrders();
     setStatus("", "success");
+  }
+
+  async function loadFarmProfile() {
+    try {
+      const res = await fetch(`${ROOT_BASE}/farms/`, {
+        method: "GET",
+        headers: authHeaders({ Accept: "application/json" }),
+      });
+
+      const parsed = await readJsonOrText(res);
+      if (!parsed.ok || !Array.isArray(parsed.data)) return;
+
+      const ownedFarm = parsed.data.find((f) => f.is_owner === true);
+      if (!ownedFarm) return;
+
+      const farmName = String(ownedFarm.name || "").trim();
+      if (!farmName) return;
+
+      if (farmerPortalTitle) {
+        farmerPortalTitle.textContent = `${farmName}'s Farmer Portal`;
+      }
+      document.title = `${farmName} | Farmer Portal`;
+    } catch (e) {
+      // non-blocking
+    }
   }
 
   async function createProductFromForm() {
@@ -776,7 +694,11 @@
 
       const parsed = await readJsonOrText(res);
       if (!parsed.ok) {
-        console.log("Create product error:", parsed.status, parsed.data ?? parsed.raw);
+        console.log(
+          "Create product error:",
+          parsed.status,
+          parsed.data ?? parsed.raw,
+        );
         setStatus(`Add product failed (HTTP ${parsed.status})`, "danger");
         return;
       }
@@ -804,7 +726,11 @@
 
     const parsed = await readJsonOrText(res);
     if (!parsed.ok) {
-      console.log("Delete product error:", parsed.status, parsed.data ?? parsed.raw);
+      console.log(
+        "Delete product error:",
+        parsed.status,
+        parsed.data ?? parsed.raw,
+      );
       setStatus(`Delete failed (HTTP ${parsed.status})`, "danger");
       return;
     }
@@ -828,7 +754,11 @@
 
     const parsed = await readJsonOrText(res);
     if (!parsed.ok) {
-      console.log("Confirm order error:", parsed.status, parsed.data ?? parsed.raw);
+      console.log(
+        "Confirm order error:",
+        parsed.status,
+        parsed.data ?? parsed.raw,
+      );
       setStatus(`Confirm failed (HTTP ${parsed.status})`, "danger");
       return;
     }
@@ -865,8 +795,7 @@
     farmerOrdersBody?.addEventListener("click", (e) => {
       const btn = e.target?.closest?.("[data-confirm]");
       const id = btn?.getAttribute?.("data-confirm");
-      if (!id) return;
-      confirmOrder(id);
+      if (id) confirmOrder(id);
     });
 
     connectStripeBtn?.addEventListener("click", async () => {
@@ -874,14 +803,14 @@
 
       try {
         connectStripeBtn.disabled = true;
-        setStatus("Opening Stripe setup…", "muted");
+        setStatus("Opening Stripe…", "muted");
 
-        await handleStripeConnection();
+        await linkOutToStripe();
 
         setStatus("", "success");
       } catch (err) {
-        console.error("Stripe connection failed:", err);
-        setStatus(err?.message || "Unable to open Stripe connection portal.", "danger");
+        console.error("Stripe link-out failed:", err);
+        setStatus(err?.message || "Unable to open Stripe.", "danger");
       } finally {
         connectStripeBtn.disabled = false;
       }
@@ -900,17 +829,12 @@
   document.addEventListener("DOMContentLoaded", async () => {
     wireEvents();
 
+    // Non-blocking page loads
     await loadFarmProfile();
     await loadInventory();
     await loadOrders();
 
-    // Stripe: update the UI on load
-    try {
-      const s = await fetchStripeAccountState();
-      updateStripeUiFromState(s);
-    } catch {
-      // don't block the page if stripe status fails
-      setStripeStatus("Stripe status unavailable.", "danger");
-    }
+    // Stripe UI refresh (does not block Open Stripe button)
+    await refreshStripeUi();
   });
 })();
