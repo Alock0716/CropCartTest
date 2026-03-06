@@ -235,6 +235,7 @@
   function getSavedAddress() {
     try {
       const raw = localStorage.getItem(SAVED_ADDRESS_KEY);
+      console.log(raw);
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
