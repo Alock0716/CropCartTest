@@ -222,10 +222,8 @@
     const label = delivery.getDeliveryStatusLabel(row.inRange);
     const klass = delivery.getDeliveryStatusClass(row.inRange);
     
-    console.log("Customer:", customerPoint);
-    console.log("Farm:", farm);
-    console.log("Distance:", miles);
-    console.log("Radius:", farm.radiusMiles);
+    console.log(row);
+    console.log(product);
     
     return `
       <span class="badge cc-delivery-badge ${CC.escapeHtml(klass)}">
