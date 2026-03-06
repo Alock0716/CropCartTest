@@ -92,6 +92,7 @@
       if (!key) continue;
       productLookup[key] = product;
     }
+    console.log(productLookup);
   }
 
   // ===========================================================================
