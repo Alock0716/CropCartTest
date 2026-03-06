@@ -329,6 +329,8 @@
 
       const data = await res.json();
 
+      console.log(query);
+
       if (!Array.isArray(data) || !data.length) {
         console.warn("No geocode result:", cleanQuery, data);
         geocodeCache.set(cleanQuery, null);
@@ -396,6 +398,58 @@
   async function geocodeAddress(address) {
     const query = delivery.formatAddressForGeocode(address);
     return geocodePlace(query);
+  }
+
+    /**
+   * Resolve an address point with a graceful fallback strategy.
+   *
+   * Order:
+   * 1) Try full formatted address
+   * 2) If that fails, try ZIP-only geocoding
+   * 3) If both fail, return null
+   *
+   * Returns:
+   * - point: { lat, lng } or null
+   * - source: "address" | "zip" | null
+   * - zip: extracted ZIP if available
+   *
+   * @param {object} address
+   * @returns {Promise<{point: {lat:number,lng:number}|null, source: string|null, zip: string}>}
+   */
+  async function resolveAddressPoint(address) {
+    const fullQuery = delivery.formatAddressForGeocode(address);
+    const zip = delivery.extractZip(address);
+    const zipQuery = delivery.formatZipForGeocode(address);
+
+    // First try: full address
+    if (fullQuery) {
+      const fullPoint = await geocodePlace(fullQuery);
+      if (fullPoint) {
+        return {
+          point: fullPoint,
+          source: "address",
+          zip,
+        };
+      }
+    }
+
+    // Fallback: ZIP only
+    if (zipQuery) {
+      const zipPoint = await geocodePlace(zipQuery);
+      if (zipPoint) {
+        return {
+          point: zipPoint,
+          source: "zip",
+          zip,
+        };
+      }
+    }
+
+    return {
+      point: null,
+      source: null,
+      zip,
+    };
   }
 
   // ==========================================================================
@@ -669,19 +723,34 @@
 
     setPageStatus("Locating selected address…", "muted");
 
-    const point = await geocodeAddress(selectedAddress);
-    if (!point) {
+        const resolved = await resolveAddressPoint(selectedAddress);
+
+    if (!resolved.point) {
       selectedCustomerPoint = null;
       refreshCustomerMarker();
       setPageStatus(
-        "Could not geocode the selected address.",
+        "Could not geocode the selected address or ZIP code.",
         "danger"
       );
       return;
     }
 
-    selectedCustomerPoint = point;
+    selectedCustomerPoint = resolved.point;
     delivery.setSavedAddress(selectedAddress);
+
+    refreshCustomerMarker();
+    refreshFarmLayers();
+    refreshOverallRadius();
+    fitMapToVisibleContent();
+
+    if (resolved.source === "zip") {
+      setPageStatus(
+        "Address could not be matched exactly, so ZIP-based location was used.",
+        "warning"
+      );
+    } else {
+      setPageStatus("Customer address loaded onto the map.", "success");
+    }
 
     refreshCustomerMarker();
     refreshFarmLayers();

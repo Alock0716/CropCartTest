@@ -175,6 +175,58 @@
     return formatAddressLine(address);
   }
 
+    /**
+   * Extract a 5-digit ZIP code from an address object or raw string.
+   *
+   * Purpose:
+   * - Gives us a stable postal-code fallback when full-address geocoding fails.
+   *
+   * Accepts:
+   * - address objects from account / checkout flows
+   * - raw strings, just in case a string gets passed in later
+   *
+   * @param {object|string|null} address
+   * @returns {string}
+   */
+  function extractZip(address) {
+    if (!address) return "";
+
+    if (typeof address === "object") {
+      const direct =
+        toCleanString(address.zip) ||
+        toCleanString(address.postal_code);
+
+      if (direct) {
+        const match = direct.match(/\b\d{5}(?:-\d{4})?\b/);
+        return match ? match[0].slice(0, 5) : "";
+      }
+
+      const formatted = formatAddressLine(address);
+      const formattedMatch = formatted.match(/\b\d{5}(?:-\d{4})?\b/);
+      return formattedMatch ? formattedMatch[0].slice(0, 5) : "";
+    }
+
+    const raw = toCleanString(address);
+    const match = raw.match(/\b\d{5}(?:-\d{4})?\b/);
+    return match ? match[0].slice(0, 5) : "";
+  }
+
+  /**
+   * Build a ZIP-first geocoding query.
+   *
+   * Purpose:
+   * - Used only as a fallback when the full address fails.
+   * - Adds a country hint so Nominatim stays focused in the US.
+   *
+   * @param {object|string|null} address
+   * @returns {string}
+   */
+  function formatZipForGeocode(address) {
+    const zip = extractZip(address);
+    if (!zip) return "";
+    return `${zip}, USA`;
+  }
+
   /**
    * Read the current saved/default address.
    *
@@ -874,6 +926,9 @@
   delivery.getDeliveryStatusClass = getDeliveryStatusClass;
 
   delivery.fetchNormalizedFarms = fetchNormalizedFarms;
+
+  delivery.extractZip = extractZip;
+  delivery.formatZipForGeocode = formatZipForGeocode;
 
   CC.delivery = delivery;
 })();
