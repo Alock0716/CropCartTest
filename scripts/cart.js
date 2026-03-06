@@ -83,6 +83,8 @@
         ? res.data
         : [];
 
+    console.log(rows);
+
     productLookup = {};
 
     for (const product of rows) {
@@ -510,9 +512,8 @@
         const line = Number(item.subtotal) || price * qty;
 
         const fullProduct =
-          productLookup[String(rawProduct.id)] ||
-          productLookup[String(item.product_id)] ||
-          rawProduct;
+          productLookup[String(p.id)] ||
+          p;
 
         let deliveryRow = null;
         if (delivery) {
@@ -530,7 +531,7 @@
         ).trim();
 
         const farmLocation = String(
-          fullProduct?.farm_location
+          fullProduct.farm_location
         ).trim();
 
         return `
