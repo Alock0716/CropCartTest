@@ -163,6 +163,7 @@
 
     return point;
   }
+
   function getRangeFilterValue() {
     const raw = String(locationEl?.value || "All").trim();
     if (raw === "__in_range__") return "in";
@@ -236,91 +237,6 @@
     }
 
     return `<span class="cc-distance-note">${CC.escapeHtml(miles.toFixed(1))} mi away</span>`;
-  }
-
-    function getLocalAddress() {
-    try {
-      const raw = localStorage.getItem("cc_saved_address_v1");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function setLocalAddress(addr) {
-    try {
-      localStorage.setItem("cc_saved_address_v1", JSON.stringify(addr));
-    } catch {
-      // Ignore storage failures
-    }
-  }
-
-  async function geocodeAddressWithFallback(address) {
-    const delivery = getDeliveryApi();
-    if (!delivery || !address) return null;
-
-    const fullQuery = delivery.formatAddressForGeocode(address);
-    const zipQuery = delivery.formatZipForGeocode(address);
-
-    async function geocode(query) {
-      if (!query) return null;
-
-      const url =
-        "https://nominatim.openstreetmap.org/search?" +
-        new URLSearchParams({
-          q: query,
-          format: "json",
-          limit: "1",
-          countrycodes: "us",
-        });
-
-      try {
-        const res = await fetch(url, {
-          headers: { Accept: "application/json" },
-        });
-
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        if (!Array.isArray(data) || !data.length) return null;
-
-        return delivery.toPoint?.(Number(data[0].lat), Number(data[0].lon)) || null;
-      } catch {
-        return null;
-      }
-    }
-
-    return (await geocode(fullQuery)) || (await geocode(zipQuery)) || null;
-  }
-
-  async function getSavedCustomerPoint() {
-    const delivery = getDeliveryApi();
-    if (!delivery) return null;
-
-    const saved = getLocalAddress() || delivery.getSavedAddress?.();
-    if (!saved) return null;
-
-    if (delivery.hasValidPoint?.(saved)) {
-      return delivery.toPoint?.(saved.lat, saved.lng) || null;
-    }
-
-    const point = await geocodeAddressWithFallback(saved);
-    if (!point) return null;
-
-    const enriched = {
-      ...saved,
-      lat: point.lat,
-      lng: point.lng,
-      geocode_source: "store_geocode",
-      updatedAt: new Date().toISOString(),
-    };
-
-    setLocalAddress(enriched);
-    if (typeof delivery.setSavedAddress === "function") {
-      delivery.setSavedAddress(enriched);
-    }
-
-    return point;
   }
 
   /* ==========================================================================
