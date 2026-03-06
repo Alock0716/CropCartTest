@@ -118,13 +118,11 @@
   }
 
   function getDeliveryApi() {
-    return CC?.delivery && CC.delivery.__sharedReady ? CC.delivery : null;
+    return window.CC?.delivery && window.CC.delivery.__sharedReady
+      ? window.CC.delivery
+      : null;
   }
 
-  /**
-   * Small geocoder used only when the saved account address has text fields
-   * but no lat/lng yet.
-   */
   async function geocodeAddressWithFallback(address) {
     const delivery = getDeliveryApi();
     if (!delivery || !address) return null;
@@ -154,7 +152,7 @@
         const data = await res.json();
         if (!Array.isArray(data) || !data.length) return null;
 
-        return delivery.toPoint?.(Number(data[0].lat), Number(data[0].lon)) || null;
+        return delivery.toPoint(Number(data[0].lat), Number(data[0].lon));
       } catch {
         return null;
       }
@@ -167,30 +165,23 @@
     const delivery = getDeliveryApi();
     if (!delivery) return null;
 
-    const saved = getLocalAddress() || delivery.getSavedAddress?.();
+    const saved = delivery.getSavedAddress();
     if (!saved) return null;
 
-    // Use cached coordinates if already present
-    if (delivery.hasValidPoint?.(saved)) {
-      return delivery.toPoint?.(saved.lat, saved.lng) || null;
+    if (delivery.hasValidPoint(saved)) {
+      return delivery.toPoint(saved.lat, saved.lng);
     }
 
-    // Otherwise geocode the saved textual address
     const point = await geocodeAddressWithFallback(saved);
     if (!point) return null;
 
-    const enriched = {
+    delivery.setSavedAddress({
       ...saved,
       lat: point.lat,
       lng: point.lng,
-      geocode_source: "cart_geocode",
+      geocode_source: "page_geocode",
       updatedAt: new Date().toISOString(),
-    };
-
-    setLocalAddress(enriched);
-    if (typeof delivery.setSavedAddress === "function") {
-      delivery.setSavedAddress(enriched);
-    }
+    });
 
     return point;
   }

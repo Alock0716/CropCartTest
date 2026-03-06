@@ -86,20 +86,74 @@
   let farmByIdMap = new Map(); // id -> farmRow
   let farmIdByNameMap = new Map(); // normalized farm name -> id
 
-    function getDeliveryApi() {
-    return CC?.delivery && CC.delivery.__sharedReady ? CC.delivery : null;
+  function getDeliveryApi() {
+    return window.CC?.delivery && window.CC.delivery.__sharedReady
+      ? window.CC.delivery
+      : null;
   }
 
-  function getSavedCustomerPoint() {
+  async function geocodeAddressWithFallback(address) {
+    const delivery = getDeliveryApi();
+    if (!delivery || !address) return null;
+
+    const fullQuery = delivery.formatAddressForGeocode(address);
+    const zipQuery = delivery.formatZipForGeocode(address);
+
+    async function geocode(query) {
+      if (!query) return null;
+
+      const url =
+        "https://nominatim.openstreetmap.org/search?" +
+        new URLSearchParams({
+          q: query,
+          format: "json",
+          limit: "1",
+          countrycodes: "us",
+        });
+
+      try {
+        const res = await fetch(url, {
+          headers: { Accept: "application/json" },
+        });
+
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        if (!Array.isArray(data) || !data.length) return null;
+
+        return delivery.toPoint(Number(data[0].lat), Number(data[0].lon));
+      } catch {
+        return null;
+      }
+    }
+
+    return (await geocode(fullQuery)) || (await geocode(zipQuery)) || null;
+  }
+
+  async function getSavedCustomerPoint() {
     const delivery = getDeliveryApi();
     if (!delivery) return null;
 
-    const saved = delivery.getSavedAddress?.();
+    const saved = delivery.getSavedAddress();
     if (!saved) return null;
 
-    return delivery.toPoint?.(saved.lat, saved.lng) || null;
-  }
+    if (delivery.hasValidPoint(saved)) {
+      return delivery.toPoint(saved.lat, saved.lng);
+    }
 
+    const point = await geocodeAddressWithFallback(saved);
+    if (!point) return null;
+
+    delivery.setSavedAddress({
+      ...saved,
+      lat: point.lat,
+      lng: point.lng,
+      geocode_source: "page_geocode",
+      updatedAt: new Date().toISOString(),
+    });
+
+    return point;
+  }
   function getRangeFilterValue() {
     const raw = String(locationEl?.value || "All").trim();
     if (raw === "__in_range__") return "in";
