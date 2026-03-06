@@ -84,8 +84,9 @@
         : [];
 
     productLookup = {};
+
     for (const product of rows) {
-      const key = String(product?.id ?? product?.product_id ?? "").trim();
+      const key = String(product.id);
       if (!key) continue;
       productLookup[key] = product;
     }
@@ -508,7 +509,10 @@
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
 
-        const fullProduct = productLookup[item.product.id]
+        const fullProduct =
+          productLookup[String(rawProduct.id)] ||
+          productLookup[String(item.product_id)] ||
+          rawProduct;
 
         let deliveryRow = null;
         if (delivery) {
