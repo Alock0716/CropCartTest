@@ -167,11 +167,6 @@
               <span class="badge text-bg-primary">Saved Address</span>
             </div>
 
-            <p class="text-muted small mb-3">
-              Select which saved or cached address should be used for the
-              customer coverage pin on the map.
-            </p>
-
             <div class="mb-3">
               <label class="form-label" for="addressSelect"
                 >Address to display</label
@@ -204,15 +199,6 @@
                 Clear Customer Pin
               </button>
             </div>
-
-            <hr />
-
-            <div>
-              <div class="small text-muted mb-1">Selected address details</div>
-              <div id="selectedAddressSummary" class="small">
-                No address selected yet.
-              </div>
-            </div>
           </div>
         </div>
 
@@ -220,7 +206,6 @@
           <div class="cc-card h-100">
             <div class="d-flex align-items-center justify-content-between mb-3">
               <h2 class="cc-h2 mb-0">Farm Display Controls</h2>
-              <span class="badge text-bg-success">API / DB Driven</span>
             </div>
 
             <p class="text-muted small mb-3">
@@ -295,26 +280,6 @@
         <!-- ===================================================== -->
         <div class="col-12 col-xl-4">
           <!-- --------------------------------------------------- -->
-          <!-- FARM LIST / TOGGLES                                 -->
-          <!-- --------------------------------------------------- -->
-          <div class="cc-card mb-4">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-              <h2 class="cc-h2 mb-0">Farms</h2>
-              <span id="farmCountBadge" class="badge text-bg-light"
-                >0 farms</span
-              >
-            </div>
-
-            <div
-              id="farmToggleList"
-              class="d-flex flex-column gap-2"
-              aria-live="polite"
-            >
-              <div class="small text-muted">Loading farms…</div>
-            </div>
-          </div>
-
-          <!-- --------------------------------------------------- -->
           <!-- SHARED DISPLAY TOGGLES                              -->
           <!-- --------------------------------------------------- -->
           <div class="cc-card mb-4">
@@ -376,29 +341,23 @@
           </div>
 
           <!-- --------------------------------------------------- -->
-          <!-- PAGE NOTES                                           -->
+          <!-- FARM LIST / TOGGLES                                 -->
           <!-- --------------------------------------------------- -->
-          <div class="cc-card">
-            <h2 class="cc-h2 mb-3">How This Page Works</h2>
+          <div class="cc-card mb-4 cc-scroll-card-lg">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h2 class="cc-h2 mb-0">Farms</h2>
+              <span id="farmCountBadge" class="badge text-bg-light"
+                >0 farms</span
+              >
+            </div>
 
-            <ul class="mb-0 ps-3">
-              <li class="mb-2">
-                Farm locations are loaded from the farm records and mapped using
-                the location fields available from the API.
-              </li>
-              <li class="mb-2">
-                Customer pins come from stored or cached addresses instead of
-                manual map entry.
-              </li>
-              <li class="mb-2">
-                Farms can be searched and toggled individually to reduce
-                clutter.
-              </li>
-              <li class="mb-0">
-                Farm logos are using the CropCart placeholder for now until
-                custom logo upload/storage is added to the farmer workflow.
-              </li>
-            </ul>
+            <div
+              id="farmToggleList"
+              class="d-flex flex-column gap-2"
+              aria-live="polite"
+            >
+              <div class="small text-muted">Loading farms…</div>
+            </div>
           </div>
         </div>
 
