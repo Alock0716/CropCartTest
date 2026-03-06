@@ -230,7 +230,7 @@
   }
 
   function getDistanceNoteHtml(product) {
-    const miles = product?.__delivery?.distanceMiles;
+    const miles = delivery.distanceMiles(product.farm_location, getSavedCustomerPoint());
     if (!Number.isFinite(miles)) {
       return `<span class="cc-distance-note">Distance unavailable</span>`;
     }
