@@ -751,13 +751,6 @@
     } else {
       setPageStatus("Customer address loaded onto the map.", "success");
     }
-
-    refreshCustomerMarker();
-    refreshFarmLayers();
-    refreshOverallRadius();
-    fitMapToVisibleContent();
-
-    setPageStatus("Customer address loaded onto the map.", "success");
   }
 
   // ==========================================================================

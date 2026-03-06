@@ -43,6 +43,7 @@
   let savedCustomerPoint = null;
   /* Product lookup cache (id → product) */
   let productLookup = {};
+  let annotatedCartRows = [];
 
   // ===========================================================================
   // AUTH / ERROR HANDLING
@@ -175,6 +176,66 @@
     }
 
     return `<span class="cc-distance-note">${CC.escapeHtml(miles.toFixed(1))} mi away</span>`;
+  }
+
+    function buildAnnotatedCartRows() {
+    const delivery = getDeliveryApi();
+    const items = Array.isArray(cart?.items) ? cart.items : [];
+
+    if (!delivery) return [];
+
+    const farmMap = delivery.buildFarmNameMap(normalizedFarms);
+
+    return items.map((item) => {
+      const rawProduct = item.product || {};
+      const fullProduct =
+        productLookup[String(rawProduct.id)] ||
+        productLookup[String(item.product_id)] ||
+        rawProduct;
+
+      const annotated = delivery.annotateProductDelivery(
+        fullProduct,
+        savedCustomerPoint,
+        farmMap,
+      );
+
+      return {
+        item,
+        product: fullProduct,
+        ...annotated,
+      };
+    });
+  }
+
+  function getCheckoutBlockMessage(rows) {
+    const delivery = getDeliveryApi();
+    if (!delivery) {
+      return "Delivery range could not be verified right now. Please try again.";
+    }
+
+    if (!savedCustomerPoint) {
+      return "Please save or select a delivery address before checking out.";
+    }
+
+    const outRows = delivery.getOutOfRangeRows(rows);
+    if (!outRows.length) return "";
+
+    const names = outRows
+      .map((row) => row?.product?.name || row?.item?.product?.name || "Item")
+      .slice(0, 3);
+
+    const extra =
+      outRows.length > 3 ? ` and ${outRows.length - 3} more` : "";
+
+    return `Some items are outside this address's delivery range: ${names.join(", ")}${extra}.`;
+  }
+
+  function canProceedToCheckout() {
+    const delivery = getDeliveryApi();
+    if (!delivery) return false;
+
+    annotatedCartRows = buildAnnotatedCartRows();
+    return delivery.areAllRowsDeliverable(annotatedCartRows);
   }
 
   // ===========================================================================
@@ -419,10 +480,11 @@
         const raw = item.product || {};
         const fullProduct =
           productLookup[String(raw.id)] ||
+          productLookup[String(item.product_id)] ||
           raw;
 
-        const name = p.name || "Item";
-        const price = Number(p.price) || 0;
+        const name = fullProduct.name || "Item";
+        const price = Number(fullProduct.price) || 0;
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
 
@@ -444,11 +506,8 @@
                   ${farmLocation ? ` • ${CC.escapeHtml(farmLocation)}` : ""}
                 </div>
                 <div class="cc-cart-item-badges">
-                  <span class="badge cc-delivery-badge ${
-                    CC.delivery.getDeliveryStatusClass(deliveryRow.inRange)
-                  }">
-                    ${CC.delivery.getDeliveryStatusLabel(deliveryRow.inRange)}
-                  </span>
+                  ${renderDeliveryBadge(deliveryRow)}
+                  ${renderDistanceNote(deliveryRow)}
                 </div>
               </div>
             </td>
@@ -516,15 +575,14 @@
   // ===========================================================================
   // REFRESH / BOOT
   // ===========================================================================
-
   async function refresh() {
-
     await Promise.all([
       fetchCart(),
       loadProductLookup(),
-      loadDeliveryContext()
+      loadDeliveryContext(),
     ]);
 
+    annotatedCartRows = buildAnnotatedCartRows();
     renderCart();
   }
 
@@ -557,8 +615,41 @@
     }
 
     if (goCheckoutBtn) {
-      goCheckoutBtn.addEventListener("click", () => {
-        window.location.href = "checkout.html";
+      goCheckoutBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+
+        try {
+          if (!CC.auth.isLoggedIn()) {
+            window.location.href = "login.html";
+            return;
+          }
+
+          await Promise.all([
+            loadProductLookup(),
+            loadDeliveryContext(),
+            fetchCart(),
+          ]);
+
+          annotatedCartRows = buildAnnotatedCartRows();
+
+          if (!canProceedToCheckout()) {
+            CC.setStatus(
+              statusEl,
+              getCheckoutBlockMessage(annotatedCartRows),
+              "danger",
+            );
+            return;
+          }
+
+          CC.setStatus(statusEl, "", "success");
+          window.location.href = "checkout.html";
+        } catch (err) {
+          CC.setStatus(
+            statusEl,
+            err?.message || "Unable to validate delivery range.",
+            "danger",
+          );
+        }
       });
     }
   }
