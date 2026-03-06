@@ -508,7 +508,7 @@
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
 
-        fullProduct = productLookup[item.product.id]
+        const fullProduct = productLookup[item.product.id]
 
         let deliveryRow = null;
         if (delivery) {
