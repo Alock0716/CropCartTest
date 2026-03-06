@@ -26,11 +26,7 @@
     <!-- Auth + shared boot logic -->
     <script defer src="./scripts/auth.js"></script>
     <script defer src="./scripts/page.js"></script>
-    <script
-      defer
-      src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"
-    ></script>
-    <script src="./scripts/delivery-shared.js"></script>
+
     <!-- Store logic -->
     <script defer src="./scripts/store.js"></script>
   </head>
@@ -185,8 +181,7 @@
                         <option>Stock: High → Low</option>
                         <option>Farm: A→Z</option>
                         <option>Farm: Z→A</option>
-                        <option>Farm Distance: Close → Far</option>
-                        <option>Farm Distance: Far → Close</option>
+                        <option>Farm Location: A-Z</option>
                         <option value="favorites">Favorite Farms</option>
                       </select>
 
@@ -208,13 +203,11 @@
                   <!-- Location Filter -->
                   <div class="col-12 cc-select-wrapper">
                     <label class="form-label cc-label" for="productLocation">
-                      Filter By Location / Range:
+                      Filter By Location:
                     </label>
                     <select id="productLocation" class="form-select cc-select">
                       <option value="All">All locations</option>
-                      <option value="__in_range__">In delivery range</option>
-                      <option value="__out_of_range__">Out of delivery range</option>
-                      <!-- store.js auto-populates actual location values after products load -->
+                      <!-- store.js auto-populates after products load -->
                     </select>
                   </div>
                 </div>

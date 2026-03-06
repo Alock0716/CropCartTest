@@ -24,6 +24,7 @@
  * - If missing OR fails to load, we fall back to the initial letter tile
  *
  * IMPORTANT:
+ * - This regen is ORGANIZATION + COMMENTS only.
  * - No functional logic changes.
  * - No inline styles were introduced; one existing inline style in error <pre>
  *   was replaced with a CSS class (cc-prewrap).
@@ -69,9 +70,6 @@
   // Holds the full products list loaded from the API
   let allProducts = [];
 
-  //Location variables
-  let allFarmsNormalized = [];
-  let savedCustomerPoint = null;
   // -------------------------
   // Favorites (API-backed)
   // -------------------------
@@ -85,164 +83,6 @@
   // Farm lookup maps built from GET /api/farms/
   let farmByIdMap = new Map(); // id -> farmRow
   let farmIdByNameMap = new Map(); // normalized farm name -> id
-
-  function setLocalAddress(addr) {
-    try {
-      localStorage.setItem(LOCAL_ADDRESS_KEY, JSON.stringify(addr));
-    } catch {
-      // ignore storage issues
-    }
-  }
-
-  function getDeliveryApi() {
-    return window.CC?.delivery && window.CC.delivery.__sharedReady
-      ? window.CC.delivery
-      : null;
-  }
-
-  async function geocodeAddressWithFallback(address) {
-    const delivery = getDeliveryApi();
-    if (!delivery || !address) return null;
-
-    const fullQuery = delivery.formatAddressForGeocode(address);
-    const zipQuery = delivery.formatZipForGeocode(address);
-
-    async function geocode(query) {
-      if (!query) return null;
-
-      const url =
-        "https://nominatim.openstreetmap.org/search?" +
-        new URLSearchParams({
-          q: query,
-          format: "json",
-          limit: "1",
-          countrycodes: "us",
-        });
-
-      try {
-        const res = await fetch(url, {
-          headers: { Accept: "application/json" },
-        });
-
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        if (!Array.isArray(data) || !data.length) return null;
-
-        return delivery.toPoint(Number(data[0].lat), Number(data[0].lon));
-      } catch {
-        return null;
-      }
-    }
-
-    return (await geocode(fullQuery)) || (await geocode(zipQuery)) || null;
-  }
-
-  async function getSavedCustomerPoint() {
-    const delivery = getDeliveryApi();
-    if (!delivery) return null;
-
-    const saved = delivery.getSavedAddress();
-    if (!saved) return null;
-
-    if (delivery.hasValidPoint(saved)) {
-      return delivery.toPoint(saved.lat, saved.lng);
-    }
-
-    const point = await geocodeAddressWithFallback(saved);
-    if (!point) return null;
-
-    delivery.setSavedAddress({
-      ...saved,
-      lat: point.lat,
-      lng: point.lng,
-      geocode_source: "page_geocode",
-      updatedAt: new Date().toISOString(),
-    });
-
-    return point;
-  }
-
-  function getRangeFilterValue() {
-    const raw = String(locationEl?.value || "All").trim();
-    if (raw === "__in_range__") return "in";
-    if (raw === "__out_of_range__") return "out";
-    return "all";
-  }
-
-  function getConcreteLocationValue() {
-    const raw = String(locationEl?.value || "All").trim();
-    if (
-      raw === "All" ||
-      raw === "__in_range__" ||
-      raw === "__out_of_range__"
-    ) {
-      return "All";
-    }
-    return raw;
-  }
-
-  function annotateProductsForDelivery(products) {
-    const delivery = getDeliveryApi();
-    if (!delivery) {
-      return (products || []).map((product) => ({
-        product,
-        farm: null,
-        inRange: null,
-        distanceMiles: null,
-      }));
-    }
-
-    return delivery.annotateProductListDelivery(
-      products || [],
-      savedCustomerPoint,
-      allFarmsNormalized || [],
-    );
-  }
-
-  function flattenAnnotatedProducts(rows) {
-    return (rows || []).map((row) => ({
-      ...(row.product || {}),
-      __delivery: row,
-    }));
-  }
-
-  function getDeliveryBadgeHtml(product) {
-    const delivery = getDeliveryApi();
-    const row = product?.__delivery || null;
-
-    if (!delivery || !row) {
-      return `
-        <span class="badge cc-delivery-badge text-bg-secondary">
-          Range Unknown
-        </span>
-      `;
-    }
-
-    const label = delivery.getDeliveryStatusLabel(row.inRange);
-    const klass = delivery.getDeliveryStatusClass(row.inRange);
-    
-    console.log(row);
-    console.log(product);
-    
-    return `
-      <span class="badge cc-delivery-badge ${CC.escapeHtml(klass)}">
-        ${CC.escapeHtml(label)}
-      </span>
-    `;
-  }
-
-  function getDistanceNoteHtml(product) {
-    const delivery = getDeliveryApi();
-    const miles = delivery.distanceMiles(product.farm_location, getSavedCustomerPoint());
-    if (!Number.isFinite(miles)) {
-      return `<span class="cc-distance-note">Distance unavailable</span>`;
-    }
-
-   
-
-    return `<span class="cc-distance-note">${CC.escapeHtml(miles.toFixed(1))} mi away</span>`;
-  }
 
   /* ==========================================================================
    * FILTER + SORT HELPERS
@@ -320,38 +160,30 @@
     const stockA = Number(a.stock ?? a.quantity ?? 0);
     const stockB = Number(b.stock ?? b.quantity ?? 0);
 
-    const distA = Number.isFinite(a?.__delivery?.distanceMiles)
-      ? a.__delivery.distanceMiles
-      : Infinity;
-    const distB = Number.isFinite(b?.__delivery?.distanceMiles)
-      ? b.__delivery.distanceMiles
-      : Infinity;
-
     switch (sortValue) {
       case "Price: Low → High":
         return priceA - priceB;
-
       case "Price: High → Low":
         return priceB - priceA;
-
       case "Stock: High → Low":
         return stockB - stockA;
-
       case "Farm: A→Z":
-        return String(a.farm_name ?? "").localeCompare(String(b.farm_name ?? ""));
-
+        return String(a.farm_name ?? "").localeCompare(
+          String(b.farm_name ?? ""),
+        );
       case "Farm: Z→A":
-        return String(b.farm_name ?? "").localeCompare(String(a.farm_name ?? ""));
-
-      case "Farm Distance: Close → Far":
-        return distA - distB;
-
-      case "Farm Distance: Far → Close":
-        return distB - distA;
-
+        return String(b.farm_name ?? "").localeCompare(
+          String(a.farm_name ?? ""),
+        );
+      case "Farm Location: A-Z": {
+        //This can be easily changed to Location sort close to far if need/wanted
+        const locA = String(a.farm_location ?? "").trim();
+        const locB = String(b.farm_location ?? "").trim();
+        return locA.localeCompare(locB);
+      }
       case "Recommended":
       default:
-        if (distA !== distB) return distA - distB;
+        // simple stable-ish default: alphabetical by name
         return String(a.name ?? "").localeCompare(String(b.name ?? ""));
     }
   }
@@ -612,28 +444,18 @@
     }
 
     const values = Array.from(unique).sort((a, b) => a.localeCompare(b));
+
+    // Preserve current selection if possible
     const current = String(locationEl.value || "All");
 
     locationEl.innerHTML = `
       <option value="All">All locations</option>
-      <option value="__in_range__">In delivery range</option>
-      <option value="__out_of_range__">Out of delivery range</option>
-      ${values
-        .map(
-          (v) =>
-            `<option value="${CC.escapeHtml(v)}">${CC.escapeHtml(v)}</option>`,
-        )
-        .join("")}
+      ${values.map((v) => `<option value="${CC.escapeHtml(v)}">${CC.escapeHtml(v)}</option>`).join("")}
     `;
 
-    const validValues = new Set([
-      "All",
-      "__in_range__",
-      "__out_of_range__",
-      ...values,
-    ]);
-
-    locationEl.value = validValues.has(current) ? current : "All";
+    // Restore selection if still valid
+    const stillExists = values.includes(current);
+    locationEl.value = stillExists ? current : "All";
   }
 
   /**
@@ -827,10 +649,6 @@
             String(stock),
           )}</span>`;
 
-    const deliveryBadgeHtml = getDeliveryBadgeHtml(product);
-    const distanceNoteHtml = getDistanceNoteHtml(product);
-
-
     /**
      * If image fails to load, we:
      * 1) hide/remove the <img>
@@ -888,12 +706,8 @@
 
             <div class="d-flex justify-content-between m-1">
               <div class=" m-2">
-                <div class="position-relative">Provided by: ${farm}</div>
-                <div class="position-relative">${farmLocationRaw ? `<p class="mb-1">Location: ${farmLocation}</p>` : ""}</div>
-                <div class="cc-delivery-meta">
-                  ${deliveryBadgeHtml}
-                  ${distanceNoteHtml}
-                </div>
+                <div class="position-relative ">Provided by: ${farm}</div>
+                <div class="position-relative ">${farmLocationRaw ? `<p>Location: ${farmLocation}</p>` : ""}</div>
               </div>
 
               <div class="py-2">
@@ -956,26 +770,10 @@
 
     const farmSelectedRaw = String(farmEl?.value || "all").trim();
     const farmSelected = farmSelectedRaw.toLowerCase();
+    const selectedLocation = String(locationEl?.value || "All").trim();
 
     // Start with full list
     let list = [...allProducts];
-
-    const rangeMode = getRangeFilterValue();
-    const selectedLocation = getConcreteLocationValue();
-
-    let annotatedRows = annotateProductsForDelivery(list);
-
-    if (rangeMode !== "all") {
-      const delivery = getDeliveryApi();
-      if (delivery) {
-        annotatedRows = delivery.filterAnnotatedRowsByRange(
-          annotatedRows,
-          rangeMode,
-        );
-      }
-    }
-
-    list = flattenAnnotatedProducts(annotatedRows);
 
     // Farm filter
     if (farmSelected && farmSelected !== "all") {
@@ -1022,27 +820,16 @@
       });
     }
 
-    annotatedRows = annotateProductsForDelivery(list);
-    list = flattenAnnotatedProducts(annotatedRows);
-
     // Sort
     list.sort((a, b) => compareProducts(a, b, sortValue));
 
-    const rangeLabel =
-      rangeMode === "in"
-        ? "In Range"
-        : rangeMode === "out"
-          ? "Out of Range"
-          : "";
-
-    const filtersBadgeHTML = `
+    const filtersBadgeHTML =`
       <div class="d-flex flex-wrap gap-1 justify-content-center my-1">
-        ${category !== "all" && category !== "All" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="category">${CC.escapeHtml(category)}</span>` : ""}
-        ${farmSelected !== "all" && farmSelected !== "All" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="farm">${CC.escapeHtml(farmSelectedRaw)}</span>` : ""}
-        ${selectedLocation !== "all" && selectedLocation !== "All" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="location">${CC.escapeHtml(selectedLocation)}</span>` : ""}
-        ${rangeLabel ? `<span class="badge rounded-pill cc-filter-badge" data-reset="location">${CC.escapeHtml(rangeLabel)}</span>` : ""}
+        ${category != "all" && category != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="category">${category}</span>`: ""} 
+        ${farmSelected != "all" && farmSelected != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="farm">${farmSelected}</span>`: ""} 
+        ${selectedLocation != "all" && selectedLocation != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="location">${selectedLocation}</span>`: ""} 
       </div>
-    `;
+    `
 
     productsHostEl.innerHTML = `
       <div class="cc-products-head">
@@ -1080,26 +867,6 @@
       const productsRaw = parsed.data;
 
       // 2) Load farms (needed for location) and build lookup map
-      const farmRows = await getFarms();
-      farmByNameMap = buildFarmByNameMap(farmRows);
-      farmByIdMap = buildFarmByIdMap(farmRows);
-      farmIdByNameMap = buildFarmIdByNameMap(farmRows);
-
-      const delivery = getDeliveryApi();
-      allFarmsNormalized = delivery
-        ? delivery.normalizeFarmList(farmRows)
-        : [];
-
-      savedCustomerPoint = await getSavedCustomerPoint();
-
-      allProducts = attachFarmDataToProducts(parsed.data || [], farmByNameMap);
-
-      populateFarmFilter(allProducts);
-      populateLocationOptions(allProducts);
-      applyInitialFarmFilterFromUrl();
-      render();
-
-      
       const farms = await getFarms();
       farmByNameMap = buildFarmByNameMap(farms);
 

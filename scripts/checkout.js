@@ -51,12 +51,6 @@
   // Cart state (from /api/cart/)
   let cart = null;
 
-  //loc in range check handler variables
-  let productLookup = {};
-  let normalizedFarms = [];
-  let savedCustomerPoint = null;
-  let annotatedCartRows = [];
-
   // Stripe state
   let stripe = null;
   let elements = null;
@@ -140,113 +134,6 @@
   function handleUnauthorized() {
     CC.auth.clearAuth();
     window.location.href = "login.html";
-  }
-
-    function getDeliveryApi() {
-    return CC?.delivery && CC.delivery.__sharedReady ? CC.delivery : null;
-  }
-
-  function getSavedCustomerPoint() {
-    const delivery = getDeliveryApi();
-    if (!delivery) return null;
-
-    const saved = getLocalAddress() || delivery.getSavedAddress?.();
-    if (!saved) return null;
-
-    return delivery.toPoint?.(saved.lat, saved.lng) || null;
-  }
-
-  async function loadProductLookup() {
-    const res = await CC.apiRequest("/products/", { method: "GET" });
-
-    if (!res.ok) {
-      throw new Error(
-        res.data?.error || res.data?.detail || res.raw || `HTTP ${res.status}`,
-      );
-    }
-
-    const rows = Array.isArray(res.data?.data)
-      ? res.data.data
-      : Array.isArray(res.data)
-        ? res.data
-        : [];
-
-    productLookup = {};
-    for (const product of rows) {
-      productLookup[String(product.id)] = product;
-    }
-  }
-
-  async function loadDeliveryContext() {
-    const delivery = getDeliveryApi();
-    if (!delivery) {
-      normalizedFarms = [];
-      savedCustomerPoint = null;
-      return;
-    }
-
-    normalizedFarms = await delivery.fetchNormalizedFarms();
-    savedCustomerPoint = getSavedCustomerPoint();
-  }
-
-  function buildAnnotatedCartRows() {
-    const delivery = getDeliveryApi();
-    const items = Array.isArray(cart?.items) ? cart.items : [];
-
-    if (!delivery) return [];
-
-    const farmMap = delivery.buildFarmNameMap(normalizedFarms);
-
-    return items.map((item) => {
-      const rawProduct = item.product || {};
-      const fullProduct =
-        productLookup[String(rawProduct.id)] ||
-        productLookup[String(item.product_id)] ||
-        rawProduct;
-
-      const annotated = delivery.annotateProductDelivery(
-        fullProduct,
-        savedCustomerPoint,
-        farmMap,
-      );
-
-      return {
-        item,
-        product: fullProduct,
-        ...annotated,
-      };
-    });
-  }
-
-  function getDeliveryValidationMessage() {
-    const delivery = getDeliveryApi();
-    if (!delivery) {
-      return "Delivery range could not be checked right now.";
-    }
-
-    if (!savedCustomerPoint) {
-      return "Please save a delivery address before placing your order.";
-    }
-
-    const outRows = delivery.getOutOfRangeRows(annotatedCartRows);
-    if (!outRows.length) return "";
-
-    const names = outRows
-      .map((row) => row?.product?.name || row?.item?.product_name || "Item")
-      .slice(0, 3);
-
-    const extra =
-      outRows.length > 3 ? ` and ${outRows.length - 3} more` : "";
-
-    return `Some cart items are out of delivery range: ${names.join(", ")}${extra}. Remove them or change your address.`;
-  }
-
-  function validateCartDelivery() {
-    const delivery = getDeliveryApi();
-    if (!delivery) return false;
-
-    annotatedCartRows = buildAnnotatedCartRows();
-    return delivery.areAllRowsDeliverable(annotatedCartRows);
   }
 
   /* ==========================================================================
@@ -593,8 +480,6 @@
 
     try {
       await fetchCart();
-      await Promise.all([loadProductLookup(), loadDeliveryContext()]);
-      annotatedCartRows = buildAnnotatedCartRows();
       renderCartSummary();
     } catch (err) {
       CC.setStatus(statusEl, err?.message || String(err), "danger");
@@ -609,16 +494,6 @@
 
       if (!cart?.items?.length) {
         CC.setStatus(statusEl, "Your cart is empty.", "danger");
-        return;
-      }
-
-      await Promise.all([loadProductLookup(), loadDeliveryContext()]);
-      annotatedCartRows = buildAnnotatedCartRows();
-
-      if (!validateCartDelivery()) {
-        const msg = getDeliveryValidationMessage();
-        CC.setStatus(statusEl, msg, "danger");
-        setPayMsg(msg, "danger");
         return;
       }
 

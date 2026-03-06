@@ -1,11 +1,16 @@
 /**
  * cart.js — Cart page logic (real DB/API)
  *
- * Fixes included:
- * - Loads product lookup through CC.apiRequest instead of CC.API_BASE
- * - Reads saved address from cc_saved_address_v1 and geocodes it when lat/lng are missing
- * - Waits for product lookup + delivery context before rendering the authenticated cart
- * - Blocks checkout when address is missing or items are out of range
+ * Uses:
+ * - GET    /api/cart/
+ * - POST   /api/cart/add/           (not used on cart page, but part of system)
+ * - PATCH  /api/cart/update/<id>/
+ * - DELETE /api/cart/remove/<id>/
+ *
+ * Requires:
+ * - config.js + utils.js (window.CC)
+ * - auth.js (for navbar rendering)
+ * - page.js (for data-auth="in/out" toggling)
  */
 
 (function initCartPage() {
@@ -29,20 +34,18 @@
   // STATE
   // ===========================================================================
 
+  // Example shape (from API docs):
+  // { id, user, items: [{ id, product: { id, name, price }, quantity, subtotal }], total }
   let cart = null;
-
-  // Delivery / enrichment state
-  let normalizedFarms = [];
-  let savedCustomerPoint = null;
-  let productLookup = {};
-  let annotatedCartRows = [];
-
-  const LOCAL_ADDRESS_KEY = "cc_saved_address_v1";
 
   // ===========================================================================
   // AUTH / ERROR HANDLING
   // ===========================================================================
 
+  /**
+   * If the token exists but the API says 401, clear auth and refresh
+   * so the page flips back to logged-out view cleanly.
+   */
   function handleUnauthorized() {
     CC.auth.clearAuth();
     window.location.reload();
@@ -52,6 +55,9 @@
   // API
   // ===========================================================================
 
+  /**
+   * Load the current user's cart from the backend.
+   */
   async function fetchCart() {
     CC.setStatus(statusEl, "Loading your cart…", "muted");
 
@@ -68,35 +74,8 @@
     return cart;
   }
 
-  async function loadProductLookup() {
-    const res = await CC.apiRequest("/products/", { method: "GET" });
-
-    if (!res.ok) {
-      console.warn("Product lookup failed:", res.status, res.raw);
-      productLookup = {};
-      return;
-    }
-
-    const rows = Array.isArray(res.data?.data)
-      ? res.data.data
-      : Array.isArray(res.data)
-        ? res.data
-        : [];
-
-    console.log(rows);
-
-    productLookup = {};
-
-    for (const product of rows) {
-      const key = String(product.id);
-      if (!key) continue;
-      productLookup[key] = product;
-    }
-    console.log(productLookup);
-  }
-
   // ===========================================================================
-  // LOCAL HELPERS
+  // LOCAL HELPERS (kept as in source)
   // ===========================================================================
 
   function formatMoney(n) {
@@ -104,196 +83,15 @@
     return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
   }
 
-  function getLocalAddress() {
-    try {
-      const raw = localStorage.getItem(LOCAL_ADDRESS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function setLocalAddress(addr) {
-    try {
-      localStorage.setItem(LOCAL_ADDRESS_KEY, JSON.stringify(addr));
-    } catch {
-      // ignore storage issues
-    }
-  }
-
-  function getDeliveryApi() {
-    return window.CC?.delivery && window.CC.delivery.__sharedReady
-      ? window.CC.delivery
-      : null;
-  }
-
-  async function geocodeAddressWithFallback(address) {
-    const delivery = getDeliveryApi();
-    if (!delivery || !address) return null;
-
-    const fullQuery = delivery.formatAddressForGeocode(address);
-    const zipQuery = delivery.formatZipForGeocode(address);
-
-    async function geocode(query) {
-      if (!query) return null;
-
-      const url =
-        "https://nominatim.openstreetmap.org/search?" +
-        new URLSearchParams({
-          q: query,
-          format: "json",
-          limit: "1",
-          countrycodes: "us",
-        });
-
-      try {
-        const res = await fetch(url, {
-          headers: { Accept: "application/json" },
-        });
-
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        if (!Array.isArray(data) || !data.length) return null;
-
-        return delivery.toPoint(Number(data[0].lat), Number(data[0].lon));
-      } catch {
-        return null;
-      }
-    }
-
-    return (await geocode(fullQuery)) || (await geocode(zipQuery)) || null;
-  }
-
-  async function getSavedCustomerPoint() {
-    const delivery = getDeliveryApi();
-    if (!delivery) return null;
-
-    const saved = delivery.getSavedAddress();
-    if (!saved) return null;
-
-    if (delivery.hasValidPoint(saved)) {
-      return delivery.toPoint(saved.lat, saved.lng);
-    }
-
-    const point = await geocodeAddressWithFallback(saved);
-    if (!point) return null;
-
-    delivery.setSavedAddress({
-      ...saved,
-      lat: point.lat,
-      lng: point.lng,
-      geocode_source: "page_geocode",
-      updatedAt: new Date().toISOString(),
-    });
-
-    return point;
-  }
-
-  async function loadDeliveryContext() {
-    const delivery = getDeliveryApi();
-    if (!delivery) {
-      normalizedFarms = [];
-      savedCustomerPoint = null;
-      return;
-    }
-
-    try {
-      normalizedFarms = await delivery.fetchNormalizedFarms();
-    } catch (err) {
-      console.warn("Failed loading normalized farms:", err);
-      normalizedFarms = [];
-    }
-
-    savedCustomerPoint = await getSavedCustomerPoint();
-  }
-
-  function renderDeliveryBadge(row) {
-    const delivery = getDeliveryApi();
-    if (!delivery) {
-      return `<span class="badge cc-delivery-badge text-bg-secondary">Range Unknown</span>`;
-    }
-
-    const label = delivery.getDeliveryStatusLabel(row?.inRange ?? null);
-    const klass = delivery.getDeliveryStatusClass(row?.inRange ?? null);
-
-    return `<span class="badge cc-delivery-badge ${CC.escapeHtml(klass)}">${CC.escapeHtml(label)}</span>`;
-  }
-
-  function renderDistanceNote(row) {
-    const miles = row?.distanceMiles;
-    if (!Number.isFinite(miles)) {
-      return `<span class="cc-distance-note">Distance unavailable</span>`;
-    }
-
-    return `<span class="cc-distance-note">${CC.escapeHtml(miles.toFixed(1))} mi away</span>`;
-  }
-
-  function buildAnnotatedCartRows() {
-    const delivery = getDeliveryApi();
-    const items = Array.isArray(cart?.items) ? cart.items : [];
-
-    if (!delivery) return [];
-
-    const farmMap = delivery.buildFarmNameMap(normalizedFarms);
-
-    return items.map((item) => {
-      const rawProduct = item || {};
-      const fullProduct =
-        productLookup[String(rawProduct.product)];
-
-      const annotated = delivery.annotateProductDelivery(
-        fullProduct,
-        savedCustomerPoint,
-        farmMap,
-      );
-
-      return {
-        item,
-        product: fullProduct,
-        ...annotated,
-      };
-    });
-  }
-
-  function getCheckoutBlockMessage(rows) {
-    const delivery = getDeliveryApi();
-    if (!delivery) {
-      return "Delivery range could not be verified right now. Please try again.";
-    }
-
-    if (!savedCustomerPoint) {
-      return "Please save a delivery address on the Account page before checking out.";
-    }
-
-    const outRows = delivery.getOutOfRangeRows(rows);
-    if (!outRows.length) return "";
-
-    const names = outRows
-      .map((row) => row?.product?.name || row?.item?.product?.name || "Item")
-      .slice(0, 3);
-
-    const extra = outRows.length > 3 ? ` and ${outRows.length - 3} more` : "";
-
-    return `Some items are outside this address's delivery range: ${names.join(", ")}${extra}.`;
-  }
-
-  function canProceedToCheckout() {
-    const delivery = getDeliveryApi();
-    if (!delivery) return false;
-
-    annotatedCartRows = buildAnnotatedCartRows();
-    return delivery.areAllRowsDeliverable(annotatedCartRows);
-  }
-
   // ===========================================================================
-  // GUEST CART RENDER
+  // GUEST CART RENDER (pre-login cart)
   // ===========================================================================
 
   function renderGuestCart() {
     const items = CC.cartCache.listGuestItems();
     const subtotal = CC.cartCache.guestSubtotal();
 
+    // You already have a container / table area in cart.html — use whatever you’re using for normal cart
     const cartHost =
       document.querySelector("#cartHost") ||
       document.querySelector("[data-cart-host]");
@@ -319,29 +117,29 @@
         const lineTotal = (Number(product.price) || 0) * (Number(qty) || 0);
 
         return `
-          <div class="d-flex gap-3 align-items-center py-3 border-bottom" data-guest-row="${product.id}">
-            ${imgHtml}
+        <div class="d-flex gap-3 align-items-center py-3 border-bottom" data-guest-row="${product.id}">
+          ${imgHtml}
 
-            <div class="flex-grow-1">
-              <div class="fw-semibold">${product.name || "Item"}</div>
-              <div class="text-muted small">
-                ${product.farm_name ? `${product.farm_name} • ` : ""}${formatMoney(product.price)}${unit}
-              </div>
-            </div>
-
-            <div class="d-flex align-items-center gap-2">
-              <button class="btn btn-sm btn-outline-secondary" data-guest-dec="${product.id}">−</button>
-              <input class="form-control form-control-sm text-center cc-guest-qty-input"
-                    value="${qty}" inputmode="numeric" data-guest-qty="${product.id}">
-              <button class="btn btn-sm btn-outline-secondary" data-guest-inc="${product.id}">+</button>
-            </div>
-
-            <div class="text-end cc-guest-line-total">
-              <div class="fw-semibold">${formatMoney(lineTotal)}</div>
-              <button class="btn btn-sm btn-link text-danger p-0" data-guest-remove="${product.id}">Remove</button>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${product.name || "Item"}</div>
+            <div class="text-muted small">
+              ${product.farm_name ? `${product.farm_name} • ` : ""}${formatMoney(product.price)}${unit}
             </div>
           </div>
-        `;
+
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" data-guest-dec="${product.id}">−</button>
+            <input class="form-control form-control-sm text-center cc-guest-qty-input"
+                  value="${qty}" inputmode="numeric" data-guest-qty="${product.id}">
+            <button class="btn btn-sm btn-outline-secondary" data-guest-inc="${product.id}">+</button>
+          </div>
+
+          <div class="text-end cc-guest-line-total">
+            <div class="fw-semibold">${formatMoney(lineTotal)}</div>
+            <button class="btn btn-sm btn-link text-danger p-0" data-guest-remove="${item.id}">Remove</button>
+          </div>
+        </div>
+      `;
       })
       .join("");
 
@@ -366,11 +164,12 @@
       </div>
     `;
 
+    // Wire controls
     cartHost.querySelectorAll("[data-guest-inc]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-guest-inc");
-        const guestCart = CC.cartCache.getGuestCart();
-        const current = guestCart.items?.[String(id)]?.qty || 0;
+        const cart = CC.cartCache.getGuestCart();
+        const current = cart.items?.[String(id)]?.qty || 0;
         CC.cartCache.setGuestItemQty(id, current + 1);
         renderGuestCart();
       });
@@ -379,8 +178,8 @@
     cartHost.querySelectorAll("[data-guest-dec]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-guest-dec");
-        const guestCart = CC.cartCache.getGuestCart();
-        const current = guestCart.items?.[String(id)]?.qty || 0;
+        const cart = CC.cartCache.getGuestCart();
+        const current = cart.items?.[String(id)]?.qty || 0;
         CC.cartCache.setGuestItemQty(id, current - 1);
         renderGuestCart();
       });
@@ -404,9 +203,14 @@
   }
 
   // ===========================================================================
-  // CART MUTATIONS
+  // CART MUTATIONS (API)
   // ===========================================================================
 
+  /**
+   * Update a cart item quantity on the backend.
+   * @param {number} itemId - cart item id
+   * @param {number} newQty - new quantity (must be >= 1)
+   */
   async function updateItemQty(itemId, newQty) {
     const safeQty = Math.max(1, Number(newQty) || 1);
 
@@ -422,9 +226,14 @@
       );
     }
 
+    // After update, re-fetch cart so totals stay authoritative from DB
     await refresh();
   }
 
+  /**
+   * Remove an item from cart on the backend.
+   * @param {number} itemId - cart item id
+   */
   async function removeItem(itemId) {
     const res = await CC.apiRequest(`/cart/remove/${itemId}/`, {
       method: "DELETE",
@@ -440,6 +249,11 @@
     await refresh();
   }
 
+  /**
+   * Remove an item from cart on the backend WITHOUT re-fetching.
+   * This is used for "Clear Cart" to avoid N refresh calls.
+   * @param {number} itemId - cart item id
+   */
   async function removeItemNoRefresh(itemId) {
     const res = await CC.apiRequest(`/cart/remove/${itemId}/`, {
       method: "DELETE",
@@ -453,6 +267,11 @@
     }
   }
 
+  /**
+   * Clears the authenticated cart by deleting each cart item.
+   * The API currently exposes remove-by-item-id (no bulk clear endpoint),
+   * so we perform deletes and then refresh once at the end.
+   */
   async function clearAuthCart() {
     const items = Array.isArray(cart?.items) ? cart.items : [];
 
@@ -461,10 +280,12 @@
       return;
     }
 
+    // UX: prevent double clicks while clearing
     if (clearBtn) clearBtn.disabled = true;
     CC.setStatus(statusEl, "Clearing your cart…", "muted");
 
     try {
+      // Run sequentially to keep server load predictable and errors easier to attribute.
       for (const it of items) {
         await removeItemNoRefresh(Number(it.id));
       }
@@ -477,14 +298,13 @@
   }
 
   // ===========================================================================
-  // RENDER
+  // RENDER (AUTH CART)
   // ===========================================================================
 
   function renderCart() {
     if (!tableBodyEl || !subtotalEl || !totalEl) return;
 
     const items = Array.isArray(cart?.items) ? cart.items : [];
-    const delivery = getDeliveryApi();
 
     if (!items.length) {
       tableBodyEl.innerHTML = `
@@ -500,67 +320,18 @@
       return;
     }
 
-    annotatedCartRows = buildAnnotatedCartRows();
-
     tableBodyEl.innerHTML = items
       .map((item) => {
-        console.log(items);
-        
-        const p = item || {};
-        const name = p.product_name || "Item";
-        const price = Number(p.product_price) || 0;
+        const p = item.product || {};
+        const name = p.name || "Item";
+        const price = Number(p.price) || 0;
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
-
-        const fullProduct =
-          productLookup[String(p.product)] ||
-          p;
-
-        let deliveryRow = null;
-        if (delivery) {
-          deliveryRow =
-            annotatedCartRows.find((row) => String(row.item?.id) === String(item.id)) ||
-            delivery.annotateProductDelivery(
-              fullProduct,
-              savedCustomerPoint,
-              delivery.buildFarmNameMap(normalizedFarms),
-            );
-        }
-
-        const farmName = String(
-          fullProduct.farm_name
-        ).trim();
-
-        const farmLocation = String(
-          fullProduct.farm_location
-        ).trim();
 
         return `
           <tr>
             <td class="px-3">
-              <div class="cc-cart-item-meta">
-                <div class="fw-semibold">${CC.escapeHtml(name)}</div>
-                ${
-                  farmName || farmLocation
-                    ? `
-                  <div class="cc-cart-item-subline">
-                    ${CC.escapeHtml(farmName)}
-                    ${farmLocation ? ` • ${CC.escapeHtml(farmLocation)}` : ""}
-                  </div>
-                `
-                    : ""
-                }
-                ${
-                  delivery
-                    ? `
-                  <div class="cc-cart-item-badges">
-                    ${renderDeliveryBadge(deliveryRow)}
-                    ${renderDistanceNote(deliveryRow)}
-                  </div>
-                `
-                    : ""
-                }
-              </div>
+              <div class="fw-semibold">${name}</div>
             </td>
 
             <td>${formatMoney(price)}</td>
@@ -591,11 +362,12 @@
         `;
       })
       .join("");
-      console.log(item);
+    
+    // Totals from API
+    subtotalEl.textContent = formatMoney(cart?.total_price || 0);
+    totalEl.textContent = formatMoney(cart?.total_price || 0);
 
-    subtotalEl.textContent = formatMoney(cart?.total_price || cart?.total || 0);
-    totalEl.textContent = formatMoney(cart?.total_price || cart?.total || 0);
-
+    // Wire qty inputs
     tableBodyEl.querySelectorAll("[data-qty-input]").forEach((inp) => {
       inp.addEventListener("change", async () => {
         const id = Number(inp.getAttribute("data-qty-input"));
@@ -607,6 +379,7 @@
       });
     });
 
+    // Wire remove buttons
     tableBodyEl.querySelectorAll("[data-remove-btn]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = Number(btn.getAttribute("data-remove-btn"));
@@ -626,7 +399,6 @@
   // ===========================================================================
 
   async function refresh() {
-    await Promise.all([loadProductLookup(), loadDeliveryContext()]);
     await fetchCart();
     renderCart();
   }
@@ -635,6 +407,7 @@
     if (clearBtn) {
       clearBtn.addEventListener("click", async () => {
         try {
+          // Guest cart clear
           if (!CC.auth.isLoggedIn()) {
             CC.cartCache.clearGuestCart();
             try {
@@ -646,6 +419,7 @@
             return;
           }
 
+          // Auth cart clear
           await clearAuthCart();
         } catch (err) {
           CC.setStatus(
@@ -658,52 +432,21 @@
     }
 
     if (goCheckoutBtn) {
-      goCheckoutBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-
-        const delivery = getDeliveryApi();
-
-        if (!delivery) {
-          CC.setStatus(
-            statusEl,
-            "Delivery checks are unavailable right now.",
-            "danger",
-          );
-          return;
-        }
-
-        if (!savedCustomerPoint) {
-          CC.setStatus(
-            statusEl,
-            "Please save a delivery address on your Account page before checking out.",
-            "danger",
-          );
-          return;
-        }
-
-        annotatedCartRows = buildAnnotatedCartRows();
-
-        if (!delivery.areAllRowsDeliverable(annotatedCartRows)) {
-          CC.setStatus(
-            statusEl,
-            getCheckoutBlockMessage(annotatedCartRows),
-            "danger",
-          );
-          return;
-        }
-
+      goCheckoutBtn.addEventListener("click", () => {
         window.location.href = "checkout.html";
       });
     }
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
+    // Guest cart (only renders if your HTML provides a cartHost)
     try {
       renderGuestCart();
     } catch {
-      // silent
+      // Keep silent like source behavior (do not break cart page)
     }
 
+    // Auth cart
     if (CC.auth.isLoggedIn()) {
       try {
         wireActions();

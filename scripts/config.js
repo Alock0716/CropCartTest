@@ -40,32 +40,6 @@ window.__CROPCART_CONFIG__ = {
   ENABLE_FARMER_PORTAL: true,
 };
 
-/**
- * DEV/PROD behavior switches:
- * - mode: "dev" | "prod"
- * - customerSource: "cache" | "api"
- * - farmSource: "hardcoded" | "api"
- */
-window.CC_CONFIG.delivery = {
-  mode: "dev",
-
-  // Customer address source:
-  // - "cache": localStorage cc_saved_address_v1 (current working behavior in checkout.js)
-  // - "api": reserved for a real endpoint if/when available
-  customerSource: "cache",
-
-  // Farm radius/geo source:
-  // - "hardcoded": simple defaults for planning/testing
-  // - "api": use /api/farms/ if it contains usable geo fields
-  farmSource: "hardcoded",
-
-  // Default radius to apply in DEV if farms have no radius
-  defaultFarmRadiusMiles: 15,
-
-  // UI defaults
-  showOverallRadiusByDefault: false,
-};
-
 // ---------------------------------------------------------------------------
 // Backwards-compatible globals (legacy scripts depend on these)
 // ---------------------------------------------------------------------------
