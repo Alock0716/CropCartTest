@@ -507,7 +507,9 @@
         const price = Number(p.price) || 0;
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
-        
+
+        fullProduct = productLookup[item.product.id]
+
         let deliveryRow = null;
         if (delivery) {
           deliveryRow =
@@ -520,18 +522,11 @@
         }
 
         const farmName = String(
-          fullProduct?.farm_name ??
-          fullProduct?.farm?.farm_name ??
-          fullProduct?.farm?.name ??
-          raw?.farm_name ??
-          ""
+          fullProduct.farm_name
         ).trim();
 
         const farmLocation = String(
-          fullProduct?.farm_location ??
-          fullProduct?.farm?.location ??
-          raw?.farm_location ??
-          ""
+          fullProduct?.farm_location
         ).trim();
 
         return `
