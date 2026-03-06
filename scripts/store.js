@@ -86,6 +86,15 @@
   let farmByIdMap = new Map(); // id -> farmRow
   let farmIdByNameMap = new Map(); // normalized farm name -> id
 
+  function setLocalAddress(addr) {
+    try {
+      localStorage.setItem(LOCAL_ADDRESS_KEY, JSON.stringify(addr));
+    } catch {
+      // ignore storage issues
+    }
+  }
+
+
   function getDeliveryApi() {
     return window.CC?.delivery && window.CC.delivery.__sharedReady
       ? window.CC.delivery
