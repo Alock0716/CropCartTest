@@ -1,22 +1,22 @@
 /**
  * ============================================================================
- * farmer.js — Farmer Portal (FULL REPLACEMENT)
+ * farmer.js — Farmer Portal logic (FULL REPLACEMENT)
  * ----------------------------------------------------------------------------
- * Stripe behavior (per your requirement):
- * - NO use of /farmer/stripe/onboarding/
- * - Uses only:
- *    - GET  /farmer/stripe/account/    -> status (connected, payouts_enabled, etc.)
- *    - POST /farmer/stripe/account     -> returns link { url, stripe_account_id }
- *    - GET  /farmer/stripe/refresh/    -> returns {status,message} (ex link_expired)
- *    - GET  /farmer/stripe/return/     -> returns {status,stripe_account_id}
+ * Updated for NEW API route structure + Stripe Connect flow changes:
  *
- * What the Stripe button does:
- * - Always opens a Stripe link (new tab) from POST /farmer/stripe/account
- * - If the link is expired, it refreshes by calling POST /account again
+ * Stripe rules (per your request):
+ * - NO onboarding initiated from the farmer portal
+ * - Portal only:
+ *   1) Checks Stripe status:    GET  /farmer/stripe/account/
+ *   2) Opens Express dashboard: GET  /farmer/stripe/dashboard/
+ *   3) Optionally reads callbacks (public):
+ *        GET /farmer/stripe/return/
+ *        GET /farmer/stripe/refresh/
  *
- * NOTE:
- * - Farmer endpoints are rooted at /farmer/* (NOT /api/farmer/*)
- * - Auth token may be stored in cc_farmer_auth OR cc_auth
+ * Notes:
+ * - This file assumes window.__CROPCART_CONFIG__.API_URL is set (ex: https://.../api)
+ * - ROOT_BASE is derived by removing trailing "/api" from API_URL
+ * - IDs and page structure should match your existing farmer.html
  * ============================================================================
  */
 
@@ -27,15 +27,30 @@
   // CONFIG / BASE URLS
   // ==========================================================================
 
+  /**
+   * Global config injected by config.js
+   * @type {{ API_URL?: string }}
+   */
   const CFG = window.__CROPCART_CONFIG__ || {};
-  const API_BASE = String(CFG.API_URL || "").replace(/\/+$/, ""); // ex: https://host/api
-  const ROOT_BASE = API_BASE ? API_BASE.replace(/\/api$/i, "") : ""; // ex: https://host
+
+  /**
+   * API base (often ends in /api)
+   * Example: https://d1xxxx.cloudfront.net/api
+   * @type {string}
+   */
+  const API_BASE = String(CFG.API_URL || "").replace(/\/+$/, "");
+
+  /**
+   * Root base (strip trailing /api)
+   * Example: https://d1xxxx.cloudfront.net
+   * @type {string}
+   */
+  const ROOT_BASE = API_BASE.replace(/\/api$/i, "");
 
   // ==========================================================================
-  // DOM
+  // DOM (IDs must match farmer.html)
   // ==========================================================================
 
-  // Global status line (optional)
   const pageStatus = document.getElementById("pageStatus");
 
   // Inventory
@@ -51,21 +66,16 @@
   const addProductForm = document.getElementById("addProductForm");
   const addProductBtn = document.getElementById("addProductBtn");
 
-  // Stripe UI (optional but expected on farmer.html)
-  const stripeStatusBox = document.getElementById("stripeStatusBox");
+  // Header title
+  const farmerPortalTitle = document.getElementById("farmerPortalTitle");
+
+  // Stripe
   const connectStripeBtn = document.getElementById("connectStripeBtn");
 
-  // Sales UI (optional)
-  const refreshSalesBtn = document.getElementById("refreshSalesBtn");
-  const applySalesRangeBtn = document.getElementById("applySalesRangeBtn");
-  const salesFrom = document.getElementById("salesFrom");
-  const salesTo = document.getElementById("salesTo");
-  const salesStatus = document.getElementById("salesStatus");
-  const salesSummary = document.getElementById("salesSummary");
-  const salesTableBody = document.getElementById("salesTableBody");
-  const salesRaw = document.getElementById("salesRaw");
+  // Optional Stripe status box (safe if missing)
+  const stripeStatusBox = document.getElementById("stripeStatusBox");
 
-  // Edit Product Modal (optional if your page includes it)
+  // Edit Product Modal elements
   const editProductModalEl = document.getElementById("editProductModal");
   const editProductForm = document.getElementById("editProductForm");
 
@@ -82,49 +92,72 @@
   const epSaveBtn = document.getElementById("epSaveBtn");
   const epCurrentPhoto = document.getElementById("epCurrentPhoto");
 
-  const editModal =
-    editProductModalEl && window.bootstrap?.Modal
-      ? new bootstrap.Modal(editProductModalEl)
-      : null;
+  const editModal = editProductModalEl ? new bootstrap.Modal(editProductModalEl) : null;
 
   // ==========================================================================
   // STATE
   // ==========================================================================
 
+  /** @type {Array<object>} */
   let inventory = [];
+
+  /** @type {Array<object>} */
   let orders = [];
 
-  // Cached Stripe status so UI can decide label/behavior quickly
-  let stripeStatusCache = null;
+  /**
+   * Stripe account status snapshot from GET /farmer/stripe/account/
+   * @type {null | {
+   *   connected: boolean,
+   *   stripe_account_id: string | null,
+   *   charges_enabled: boolean,
+   *   payouts_enabled: boolean,
+   *   details_submitted: boolean
+   * }}
+   */
+  let stripeState = null;
 
   // ==========================================================================
   // UI HELPERS
   // ==========================================================================
 
+  /**
+   * Sets main page status text.
+   * @param {string} msg - Status message to show
+   * @param {"muted"|"success"|"warning"|"danger"} kind - Bootstrap-ish text class suffix
+   */
   function setStatus(msg, kind = "muted") {
     if (!pageStatus) return;
     pageStatus.textContent = msg || "";
     pageStatus.className = `small text-${kind}`;
   }
 
-  function setStripeStatus(msg, kind = "muted") {
-    if (!stripeStatusBox) return;
-    stripeStatusBox.textContent = msg || "";
-    stripeStatusBox.className = `small text-${kind} mb-3`;
-  }
-
+  /**
+   * Sets edit modal status text.
+   * @param {string} msg - Status message to show
+   * @param {"muted"|"success"|"warning"|"danger"} kind - Bootstrap-ish text class suffix
+   */
   function setEditStatus(msg, kind = "muted") {
     if (!epStatus) return;
     epStatus.textContent = msg || "";
     epStatus.className = `small text-${kind}`;
   }
 
-  function setSalesStatus(msg, kind = "muted") {
-    if (!salesStatus) return;
-    salesStatus.textContent = msg || "—";
-    salesStatus.className = `small text-${kind} mb-2`;
+  /**
+   * Sets Stripe status text area if it exists.
+   * @param {string} msg - Stripe status message
+   * @param {"muted"|"success"|"warning"|"danger"} kind - Bootstrap-ish text class suffix
+   */
+  function setStripeStatus(msg, kind = "muted") {
+    if (!stripeStatusBox) return;
+    stripeStatusBox.textContent = msg || "";
+    stripeStatusBox.className = `small text-${kind} mb-3`;
   }
 
+  /**
+   * Escapes HTML for safe rendering inside .innerHTML
+   * @param {string} str - Raw string
+   * @returns {string} HTML-escaped string
+   */
   function escapeHtml(str) {
     return String(str)
       .replaceAll("&", "&amp;")
@@ -134,41 +167,55 @@
       .replaceAll("'", "&#039;");
   }
 
-  function showProvider401Help() {
-    setStatus(
-      "401 Unauthorized. Farmer Portal requires a provider/farmer session. " +
-        "Log in with your farmer account (and ensure it’s approved).",
-      "danger",
-    );
+  /**
+   * Finds a product from in-memory inventory list.
+   * Supports both id and product_id shapes.
+   * @param {string|number} productId - Product identifier
+   * @returns {object|null}
+   */
+  function findProductById(productId) {
+    return inventory.find((p) => String(p.id ?? p.product_id) === String(productId)) || null;
   }
 
   // ==========================================================================
-  // AUTH / FETCH HELPERS
+  // AUTH HELPERS (provider token first, customer fallback)
   // ==========================================================================
 
-  function safeJsonParse(v) {
+  /**
+   * Reads provider auth from storage if it exists.
+   * Uses cc_farmer_auth first because /farmer/* endpoints usually require provider.
+   * @returns {{access?: string} | null}
+   */
+  function getProviderAuth() {
     try {
-      return JSON.parse(v);
+      const s = sessionStorage.getItem("cc_farmer_auth");
+      const l = localStorage.getItem("cc_farmer_auth");
+      return JSON.parse(s || l || "null");
     } catch {
       return null;
     }
   }
 
-  function getProviderAuth() {
-    return (
-      safeJsonParse(sessionStorage.getItem("cc_farmer_auth")) ||
-      safeJsonParse(localStorage.getItem("cc_farmer_auth"))
-    );
-  }
-
+  /**
+   * Reads customer auth from your existing auth.js storage.
+   * auth.js typically stores "cc_auth" and token field is "access".
+   * @returns {{access?: string} | null}
+   */
   function getCustomerAuth() {
     if (typeof getAuth === "function") return getAuth();
-    return (
-      safeJsonParse(sessionStorage.getItem("cc_auth")) ||
-      safeJsonParse(localStorage.getItem("cc_auth"))
-    );
+    try {
+      const s = sessionStorage.getItem("cc_auth");
+      const l = localStorage.getItem("cc_auth");
+      return JSON.parse(s || l || "null");
+    } catch {
+      return null;
+    }
   }
 
+  /**
+   * Picks the best access token available.
+   * @returns {string}
+   */
   function getBestAccessToken() {
     const provider = getProviderAuth();
     if (provider?.access) return String(provider.access);
@@ -179,672 +226,648 @@
     return "";
   }
 
+  /**
+   * Builds Authorization headers if a token exists.
+   * @param {Record<string,string>} extra - Extra headers to merge in
+   * @returns {Record<string,string>}
+   */
   function authHeaders(extra = {}) {
     const token = getBestAccessToken();
     return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
   }
 
+  /**
+   * Reads response as JSON if possible, otherwise returns raw text.
+   * @param {Response} res - Fetch response
+   * @returns {Promise<{ok:boolean,status:number,data:any,raw:string}>}
+   */
   async function readJsonOrText(res) {
     const text = await res.text();
-    let data = null;
     try {
-      data = JSON.parse(text);
+      return { ok: res.ok, status: res.status, data: JSON.parse(text), raw: text };
     } catch {
-      data = null;
+      return { ok: res.ok, status: res.status, data: null, raw: text };
     }
-
-    return {
-      ok: res.ok,
-      status: res.status,
-      data,
-      raw: text,
-      headers: res.headers,
-    };
   }
 
   // ==========================================================================
-  // STRIPE — NEW FLOW (ACCOUNT / REFRESH / RETURN)
+  // PROVIDER GUARDS
   // ==========================================================================
 
   /**
-   * GET /farmer/stripe/account/
-   * Returns:
-   * { connected, stripe_account_id, charges_enabled, payouts_enabled, details_submitted }
+   * True if provider auth exists and contains an access token.
+   * @returns {boolean}
    */
-  async function fetchStripeAccountStatus() {
-    const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/`, {
-      method: "GET",
-      credentials: "include",
-      headers: authHeaders({ Accept: "application/json" }),
-    });
-
-    const parsed = await readJsonOrText(res);
-    if (!parsed.ok) {
-      throw new Error(parsed.data?.error || parsed.raw || `Stripe status failed (HTTP ${parsed.status})`);
-    }
-
-    const d = parsed.data || {};
-    return {
-      connected: Boolean(d.connected),
-      stripe_account_id: d.stripe_account_id || null,
-      charges_enabled: Boolean(d.charges_enabled),
-      payouts_enabled: Boolean(d.payouts_enabled),
-      details_submitted: Boolean(d.details_submitted),
-      raw: d,
-    };
+  function hasProviderToken() {
+    const provider = getProviderAuth();
+    return Boolean(provider?.access);
   }
 
   /**
-   * POST /farmer/stripe/account
-   * Returns:
-   * { url, stripe_account_id }
-   *
-   * You want this route to be the source of the "connection page link" and
-   * also the link we open for payouts/earnings statements.
+   * Prevent calling farmer-only routes without provider token.
+   * @param {string} actionLabel - Short label used in error message
+   * @returns {boolean}
    */
-  async function fetchStripeConnectionLink() {
-    const res = await fetch(`${ROOT_BASE}/farmer/stripe/account`, {
-      method: "POST",
-      credentials: "include",
-      headers: authHeaders({
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      }),
-      body: JSON.stringify({}), // API accepts empty payload based on your probe
-    });
+  function requireProviderAuth(actionLabel = "This action") {
+    if (hasProviderToken()) return true;
 
-    const parsed = await readJsonOrText(res);
-    if (!parsed.ok) {
-      throw new Error(parsed.data?.error || parsed.raw || `Stripe link fetch failed (HTTP ${parsed.status})`);
-    }
-
-    const d = parsed.data || {};
-    return {
-      url: d.url || "",
-      stripe_account_id: d.stripe_account_id || null,
-      raw: d,
-    };
-  }
-
-  /**
-   * GET /farmer/stripe/refresh/
-   * Returns:
-   * { status: "link_expired", message: "..." } (example)
-   *
-   * We'll call this when we fail to open or when status indicates a stale link.
-   */
-  async function fetchStripeRefreshStatus() {
-    const res = await fetch(`${ROOT_BASE}/farmer/stripe/refresh/`, {
-      method: "GET",
-      credentials: "include",
-      headers: authHeaders({ Accept: "application/json" }),
-    });
-
-    const parsed = await readJsonOrText(res);
-    if (!parsed.ok) {
-      throw new Error(parsed.data?.error || parsed.raw || `Stripe refresh failed (HTTP ${parsed.status})`);
-    }
-
-    return parsed.data || {};
-  }
-
-  /**
-   * GET /farmer/stripe/return/
-   * Returns:
-   * { status: "onboarding_complete", stripe_account_id }
-   *
-   * Useful after coming back from Stripe. If the user isn't redirected to
-   * farmer.html, this still won't fire; but it’s harmless and nice for status.
-   */
-  async function fetchStripeReturnStatus() {
-    const res = await fetch(`${ROOT_BASE}/farmer/stripe/return/`, {
-      method: "GET",
-      credentials: "include",
-      headers: authHeaders({ Accept: "application/json" }),
-    });
-
-    const parsed = await readJsonOrText(res);
-    if (!parsed.ok) {
-      throw new Error(parsed.data?.error || parsed.raw || `Stripe return check failed (HTTP ${parsed.status})`);
-    }
-
-    return parsed.data || {};
-  }
-
-  function renderStripeStatusUI(statusObj) {
-    stripeStatusCache = statusObj;
-
-    if (!stripeStatusBox || !connectStripeBtn) return;
-
-    const {
-      connected,
-      stripe_account_id,
-      charges_enabled,
-      payouts_enabled,
-      details_submitted,
-    } = statusObj || {};
-
-    // Determine "ready" state
-    const fullyReady = Boolean(connected && charges_enabled && payouts_enabled && details_submitted);
-
-    if (fullyReady) {
-      setStripeStatus(
-        `Stripe connected ✅ (acct: ${stripe_account_id || "—"})`,
-        "success",
-      );
-      connectStripeBtn.textContent = "Open Stripe payouts & earnings";
-      connectStripeBtn.dataset.mode = "open_dashboard";
-      return;
-    }
-
-    // Not fully ready
-    const bits = [
-      connected ? "connected" : "not connected",
-      charges_enabled ? "charges enabled" : "charges not enabled",
-      payouts_enabled ? "payouts enabled" : "payouts not enabled",
-      details_submitted ? "details submitted" : "details not submitted",
-    ].join(" • ");
-
-    setStripeStatus(
-      `Stripe setup incomplete ⚠ (${bits})`,
-      "warning",
+    setStatus(
+      `${actionLabel} requires a Farmer/Provider login. Your provider token (cc_farmer_auth) is missing or expired.`,
+      "danger",
     );
-    connectStripeBtn.textContent = "Finish Stripe setup";
-    connectStripeBtn.dataset.mode = "open_setup";
+    return false;
   }
 
-  async function refreshStripePanel({ showSpinner = true } = {}) {
-    if (!connectStripeBtn) return;
-
-    if (showSpinner) {
-      connectStripeBtn.disabled = true;
-      setStripeStatus("Checking Stripe status…", "muted");
-    }
-
-    try {
-      const s = await fetchStripeAccountStatus();
-      renderStripeStatusUI(s);
-    } catch (err) {
-      setStripeStatus(err?.message || String(err), "danger");
-      if (connectStripeBtn) {
-        connectStripeBtn.textContent = "Retry Stripe status";
-        connectStripeBtn.dataset.mode = "retry";
-      }
-    } finally {
-      if (showSpinner && connectStripeBtn) connectStripeBtn.disabled = false;
-    }
-  }
+  // ==========================================================================
+  // RENDER — INVENTORY + ORDERS
+  // ==========================================================================
 
   /**
-   * Called when user presses the Stripe button.
-   * Requirement:
-   * - get connection page link via /farmer/stripe/account
-   * - open Stripe for payouts/earnings in a new tab
+   * Renders inventory table from current `inventory` state.
    */
-  async function handleStripeButtonClick() {
-    if (!connectStripeBtn) return;
-
-    connectStripeBtn.disabled = true;
-
-    try {
-      // Quick refresh check: if backend says link expired, we’ll just fetch a fresh link.
-      // (We don't have a persistent link in UI; we always ask server for it.)
-      let refreshInfo = null;
-      try {
-        refreshInfo = await fetchStripeRefreshStatus();
-      } catch {
-        // Refresh route might not always be meaningful; ignore failures
-        refreshInfo = null;
-      }
-
-      if (refreshInfo?.status === "link_expired") {
-        setStripeStatus(refreshInfo.message || "Stripe link expired. Getting a new link…", "warning");
-      } else {
-        setStripeStatus("Getting Stripe link…", "muted");
-      }
-
-      const link = await fetchStripeConnectionLink();
-
-      if (!link.url) {
-        throw new Error("Stripe did not return a URL. (Missing 'url' field)");
-      }
-
-      // Open in new tab (payouts / earnings statements / account)
-      window.open(link.url, "_blank", "noopener,noreferrer");
-
-      // After opening, refresh status so UI is accurate if they completed something quickly
-      // (Also check /return/ as a lightweight signal)
-      try {
-        const ret = await fetchStripeReturnStatus();
-        if (ret?.status === "onboarding_complete") {
-          setStripeStatus("Stripe onboarding complete ✅ Updating status…", "success");
-        }
-      } catch {
-        // ignore
-      }
-
-      await refreshStripePanel({ showSpinner: false });
-    } catch (err) {
-      setStripeStatus(err?.message || String(err), "danger");
-    } finally {
-      connectStripeBtn.disabled = false;
-    }
-  }
-
-  // ==========================================================================
-  // SALES REPORT — GET /farmer/sales/
-  // ==========================================================================
-
-  function clearSalesUI() {
-    if (salesSummary) salesSummary.innerHTML = "";
-    if (salesTableBody) salesTableBody.innerHTML = "";
-    if (salesRaw) salesRaw.textContent = "";
-  }
-
-  function renderSalesReport(data) {
-    clearSalesUI();
-
-    if (salesRaw) salesRaw.textContent = JSON.stringify(data, null, 2);
-
-    const summary = data?.summary || {};
-    const period = data?.period || {};
-    const farm = data?.farm || {};
-    const daily = Array.isArray(data?.daily_breakdown) ? data.daily_breakdown : [];
-    const top = Array.isArray(data?.top_products) ? data.top_products : [];
-
-    // Summary chips
-    if (salesSummary) {
-      const chips = [];
-
-      if (farm?.name || farm?.farm_name) {
-        chips.push(["Farm", farm.name || farm.farm_name]);
-      }
-      if (period?.start || period?.from) {
-        chips.push(["From", period.start || period.from]);
-      }
-      if (period?.end || period?.to) {
-        chips.push(["To", period.end || period.to]);
-      }
-
-      // Common summary fields (best effort)
-      if (summary?.orders !== undefined) chips.push(["Orders", summary.orders]);
-      if (summary?.items !== undefined) chips.push(["Items", summary.items]);
-      if (summary?.revenue !== undefined) chips.push(["Revenue", summary.revenue]);
-      if (summary?.total !== undefined) chips.push(["Total", summary.total]);
-
-      salesSummary.innerHTML = `
-        <div class="d-flex flex-wrap gap-2">
-          ${chips
-            .map(([k, v]) => `<span class="badge text-bg-light border">${escapeHtml(k)}: ${escapeHtml(v)}</span>`)
-            .join("")}
-        </div>
-        ${
-          top.length
-            ? `<div class="small text-muted mt-2">Top products returned: ${top.length}</div>`
-            : ""
-        }
-      `;
-    }
-
-    // Daily breakdown table
-    if (salesTableBody) {
-      if (!daily.length) {
-        salesTableBody.innerHTML = `
-          <tr>
-            <td colspan="4" class="text-muted small">No daily breakdown data for this period.</td>
-          </tr>
-        `;
-      } else {
-        salesTableBody.innerHTML = daily
-          .map((r) => {
-            const date = escapeHtml(r.date ?? r.day ?? "—");
-            const orders = escapeHtml(r.orders ?? r.order_count ?? "—");
-            const items = escapeHtml(r.items ?? r.item_count ?? "—");
-            const total = escapeHtml(r.total ?? r.revenue ?? "—");
-
-            return `
-              <tr>
-                <td>${date}</td>
-                <td>${orders}</td>
-                <td>${items}</td>
-                <td>${total}</td>
-              </tr>
-            `;
-          })
-          .join("");
-      }
-    }
-  }
-
-  async function loadSalesReport({ from = "", to = "" } = {}) {
-    if (!refreshSalesBtn && !salesStatus && !salesRaw) return; // no sales UI present
-
-    setSalesStatus("Loading sales report…", "muted");
-
-    // Your API currently works without params; we only add them if UI provides values.
-    // If the backend ignores them, that’s fine.
-    const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-
-    const url = `${ROOT_BASE}/farmer/sales/${params.toString() ? `?${params.toString()}` : ""}`;
-
-    const res = await fetch(url, {
-      method: "GET",
-      credentials: "include",
-      headers: authHeaders({ Accept: "application/json" }),
-    });
-
-    const parsed = await readJsonOrText(res);
-    if (!parsed.ok) {
-      if (parsed.status === 401) showProvider401Help();
-      setSalesStatus(`Sales report failed (HTTP ${parsed.status})`, "danger");
-      if (salesRaw) salesRaw.textContent = parsed.raw || "";
-      return;
-    }
-
-    setSalesStatus("Sales report loaded.", "success");
-    renderSalesReport(parsed.data || {});
-  }
-
-  // ==========================================================================
-  // INVENTORY / ORDERS / PRODUCT CRUD
-  // ==========================================================================
-
-  async function loadInventory() {
-    if (!inventoryBody) return;
-
-    setStatus("Loading inventory…", "muted");
-
-    const res = await fetch(`${ROOT_BASE}/farmer/inventory/`, {
-      method: "GET",
-      credentials: "include",
-      headers: authHeaders({ Accept: "application/json" }),
-    });
-
-    const parsed = await readJsonOrText(res);
-
-    if (!parsed.ok) {
-      if (parsed.status === 401) showProvider401Help();
-      else setStatus(`Inventory failed (HTTP ${parsed.status})`, "danger");
-
-      inventory = [];
-      renderInventory();
-      return;
-    }
-
-    inventory = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
-    setStatus("", "success");
-    renderInventory();
-  }
-
   function renderInventory() {
     if (!inventoryBody) return;
 
     const q = String(invSearch?.value || "").trim().toLowerCase();
-    const filtered = !q
-      ? inventory
-      : inventory.filter((p) => {
-          const name = String(p.name || "").toLowerCase();
-          const cat = String(p.category || "").toLowerCase();
-          return name.includes(q) || cat.includes(q);
-        });
 
-    if (!filtered.length) {
-      inventoryBody.innerHTML = `
-        <tr>
-          <td colspan="5" class="text-muted small">No inventory items found.</td>
-        </tr>
-      `;
-      return;
-    }
-
-    inventoryBody.innerHTML = filtered
-      .map((p) => {
-        const id = p.id ?? p.product_id ?? "";
-        const name = escapeHtml(p.name ?? "—");
-        const category = escapeHtml(p.category ?? "—");
-        const price = escapeHtml(p.price ?? "—");
-        const stock = escapeHtml(p.stock ?? p.quantity ?? "—");
-
-        return `
-          <tr>
-            <td class="fw-semibold">${name}</td>
-            <td>${category}</td>
-            <td>${price}</td>
-            <td>${stock}</td>
-            <td class="text-end">
-              <button class="btn btn-sm btn-outline-secondary me-2" data-edit="${escapeHtml(id)}">
-                Edit
-              </button>
-              <button class="btn btn-sm btn-outline-danger" data-del="${escapeHtml(id)}">
-                Delete
-              </button>
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
-  }
-
-  async function loadOrders() {
-    if (!farmerOrdersBody) return;
-
-    setStatus("Loading orders…", "muted");
-
-    const res = await fetch(`${ROOT_BASE}/farmer/orders/`, {
-      method: "GET",
-      credentials: "include",
-      headers: authHeaders({ Accept: "application/json" }),
+    const list = inventory.filter((p) => {
+      const name = String(p?.name ?? "").toLowerCase();
+      return !q || name.includes(q);
     });
 
-    const parsed = await readJsonOrText(res);
+    inventoryBody.innerHTML = "";
 
-    if (!parsed.ok) {
-      if (parsed.status === 401) showProvider401Help();
-      else setStatus(`Orders failed (HTTP ${parsed.status})`, "danger");
-
-      orders = [];
-      renderOrders();
+    if (!list.length) {
+      inventoryBody.innerHTML = `<tr><td colspan="5" class="text-muted small py-4">No inventory found.</td></tr>`;
       return;
     }
 
-    orders = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
-    setStatus("", "success");
-    renderOrders();
+    for (const p of list) {
+      const id = p?.id ?? p?.product_id ?? "";
+      const name = escapeHtml(p?.name ?? "Unnamed");
+      const category = escapeHtml(p?.category_display ?? p?.category ?? "—");
+      const priceNum = Number(p?.price ?? 0);
+      const stockNum = Number(p?.stock ?? p?.quantity ?? 0);
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="fw-semibold">${name}</td>
+        <td>${category}</td>
+        <td>$${Number.isFinite(priceNum) ? priceNum.toFixed(2) : "0.00"}</td>
+        <td>${Number.isFinite(stockNum) ? stockNum : 0}</td>
+        <td class="text-end">
+          <div class="btn-group btn-group-sm">
+            <button type="button" class="btn btn-outline-primary" data-edit="${escapeHtml(String(id))}">Edit</button>
+            <button type="button" class="btn btn-outline-danger" data-del="${escapeHtml(String(id))}">Delete</button>
+          </div>
+        </td>
+      `;
+      inventoryBody.appendChild(tr);
+    }
   }
 
+  /**
+   * Renders farmer orders table from current `orders` state.
+   */
   function renderOrders() {
     if (!farmerOrdersBody) return;
 
+    farmerOrdersBody.innerHTML = "";
+
     if (!orders.length) {
-      farmerOrdersBody.innerHTML = `
-        <tr>
-          <td colspan="4" class="text-muted small">No incoming orders.</td>
-        </tr>
+      farmerOrdersBody.innerHTML = `<tr><td colspan="4" class="text-muted small py-4">No incoming orders right now.</td></tr>`;
+      return;
+    }
+
+    for (const o of orders) {
+      const orderId = o?.id ?? o?.order_id ?? "";
+      const status = o?.status_display ?? o?.status ?? "—";
+      const customer = o?.user ? `User ${o.user}` : "Customer";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="fw-semibold">#${escapeHtml(String(orderId))}</td>
+        <td>${escapeHtml(String(customer))}</td>
+        <td><span class="badge text-bg-light border">${escapeHtml(String(status))}</span></td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-outline-cc" data-confirm="${escapeHtml(String(orderId))}">
+            Confirm
+          </button>
+        </td>
       `;
-      return;
-    }
-
-    farmerOrdersBody.innerHTML = orders
-      .map((o) => {
-        const orderId = escapeHtml(o.id ?? o.order_id ?? "—");
-        const customer = escapeHtml(o.customer ?? o.customer_name ?? o.email ?? "—");
-        const status = escapeHtml(o.status ?? "—");
-
-        const canConfirm =
-          String(status).toLowerCase().includes("paid") ||
-          String(status).toLowerCase().includes("pending");
-
-        return `
-          <tr>
-            <td class="fw-semibold">#${orderId}</td>
-            <td>${customer}</td>
-            <td>${status}</td>
-            <td class="text-end">
-              ${
-                canConfirm
-                  ? `<button class="btn btn-sm btn-outline-cc" data-confirm="${orderId}">Confirm</button>`
-                  : `<span class="text-muted small">—</span>`
-              }
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
-  }
-
-  async function confirmOrder(orderId) {
-    setStatus("Confirming…", "muted");
-
-    const res = await fetch(`${ROOT_BASE}/farmer/orders/${encodeURIComponent(orderId)}/confirm/`, {
-      method: "PUT",
-      credentials: "include",
-      headers: authHeaders({ Accept: "application/json" }),
-    });
-
-    const parsed = await readJsonOrText(res);
-    if (!parsed.ok) {
-      if (parsed.status === 401) showProvider401Help();
-      else setStatus(`Confirm failed (HTTP ${parsed.status})`, "danger");
-      return;
-    }
-
-    setStatus("", "success");
-    await loadOrders();
-  }
-
-  async function createProductFromForm() {
-    if (!addProductBtn || !addProductForm) return;
-
-    setStatus("Creating product…", "muted");
-    addProductBtn.disabled = true;
-
-    try {
-      const pName = document.getElementById("pName")?.value || "";
-      const pPrice = document.getElementById("pPrice")?.value || "";
-      const pQty = document.getElementById("pQty")?.value || "";
-      const pCategory = document.getElementById("pCategory")?.value || "";
-      const pImage = document.getElementById("pImage");
-
-      const fd = new FormData();
-      fd.append("name", pName);
-      fd.append("price", pPrice);
-      fd.append("stock", pQty);
-      fd.append("category", pCategory);
-
-      const file = pImage?.files?.[0];
-      if (file) fd.append("photo", file);
-
-      const res = await fetch(`${ROOT_BASE}/farmer/products/`, {
-        method: "POST",
-        credentials: "include",
-        headers: authHeaders({ Accept: "application/json" }), // don't set Content-Type for FormData
-        body: fd,
-      });
-
-      const parsed = await readJsonOrText(res);
-      if (!parsed.ok) {
-        if (parsed.status === 401) showProvider401Help();
-        else setStatus(`Create failed (HTTP ${parsed.status})`, "danger");
-        return;
-      }
-
-      setStatus("Product created ✅", "success");
-      addProductForm.reset();
-      await loadInventory();
-    } finally {
-      addProductBtn.disabled = false;
+      farmerOrdersBody.appendChild(tr);
     }
   }
 
-  function findProductById(productId) {
-    return inventory.find((p) => String(p.id ?? p.product_id) === String(productId)) || null;
-  }
+  // ==========================================================================
+  // MODAL — EDIT PRODUCT
+  // ==========================================================================
 
+  /**
+   * Opens edit modal and pre-fills fields from local `inventory`.
+   * @param {string|number} productId - Product identifier
+   */
   function openEditProductModal(productId) {
     if (!editModal) return;
 
     const p = findProductById(productId);
-    if (!p) return;
-
-    if (epId) epId.value = String(p.id ?? p.product_id ?? "");
-    if (epName) epName.value = String(p.name ?? "");
-    if (epDescription) epDescription.value = String(p.description ?? "");
-    if (epCategory) epCategory.value = String(p.category ?? "");
-    if (epPrice) epPrice.value = String(p.price ?? "");
-    if (epStock) epStock.value = String(p.stock ?? p.quantity ?? "");
-    if (epIsActive) epIsActive.checked = Boolean(p.is_active ?? p.active ?? true);
-
-    if (epCurrentPhoto) {
-      const url = p.photo_url || p.image_url || "";
-      epCurrentPhoto.textContent = url ? `Current: ${url}` : "No current photo.";
+    if (!p) {
+      setStatus("Could not find that product in inventory.", "danger");
+      return;
     }
 
-    setEditStatus("", "muted");
+    const idValue = p.id ?? p.product_id;
+    const nameValue = p.name ?? "";
+    const descValue = p.description ?? "";
+    const categoryValue = p.category ?? "other";
+    const priceValue = p.price ?? "";
+    const stockValue = p.stock ?? 0;
+    const isActiveValue = typeof p.is_active === "boolean" ? p.is_active : true;
+
+    epId.value = String(idValue);
+    epName.value = String(nameValue);
+    epDescription.value = String(descValue);
+    epCategory.value = String(categoryValue);
+    epPrice.value = String(priceValue);
+    epStock.value = String(stockValue);
+    epIsActive.checked = !!isActiveValue;
+
+    // File inputs can’t be set programmatically
+    epPhoto.value = "";
+
+    if (epCurrentPhoto) {
+      const photoUrl = p.photo_url || "";
+      epCurrentPhoto.textContent = photoUrl ? "Current photo: set" : "Current photo: none";
+    }
+
+    setEditStatus("");
     editModal.show();
   }
 
+  /**
+   * Submits edit product form.
+   * Uses multipart/form-data when a file is present.
+   */
   async function submitEditProduct() {
-    if (!editProductForm || !epSaveBtn) return;
+    if (!requireProviderAuth("Saving product changes")) return;
 
-    const productId = epId?.value || "";
+    const productId = String(epId.value || "").trim();
     if (!productId) return;
 
     setEditStatus("Saving…", "muted");
-    epSaveBtn.disabled = true;
+    if (epSaveBtn) epSaveBtn.disabled = true;
 
     try {
       const fd = new FormData();
-      fd.append("name", epName?.value || "");
-      fd.append("description", epDescription?.value || "");
-      fd.append("category", epCategory?.value || "");
-      fd.append("price", epPrice?.value || "");
-      fd.append("stock", epStock?.value || "");
-      fd.append("is_active", epIsActive?.checked ? "true" : "false");
 
-      const file = epPhoto?.files?.[0];
+      fd.append("name", String(epName.value || "").trim());
+      fd.append("description", String(epDescription.value || "").trim());
+      fd.append("category", String(epCategory.value || "other"));
+      fd.append("price", String(epPrice.value || "0"));
+      fd.append("stock", String(epStock.value || "0"));
+      fd.append("is_active", epIsActive.checked ? "true" : "false");
+
+      const file = epPhoto.files?.[0];
       if (file) fd.append("photo", file);
 
       const res = await fetch(`${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/`, {
         method: "PUT",
-        credentials: "include",
-        headers: authHeaders({ Accept: "application/json" }),
+        headers: authHeaders({ Accept: "application/json" }), // Do NOT set Content-Type for FormData
         body: fd,
       });
 
       const parsed = await readJsonOrText(res);
+
       if (!parsed.ok) {
+        console.log("Update product failed:", parsed.status, parsed.data ?? parsed.raw);
         setEditStatus(`Save failed (HTTP ${parsed.status})`, "danger");
         return;
       }
 
       setEditStatus("Saved ✅", "success");
       await loadInventory();
+
       editModal.hide();
+      setStatus("", "success");
     } finally {
-      epSaveBtn.disabled = false;
+      if (epSaveBtn) epSaveBtn.disabled = false;
+    }
+  }
+
+  // ==========================================================================
+  // STRIPE CONNECT — STATUS + DASHBOARD
+  // ==========================================================================
+
+  /**
+   * Fetch Stripe account status from:
+   *   GET /farmer/stripe/account/
+   *
+   * Returns a status object like:
+   * {
+   *   connected: true|false,
+   *   stripe_account_id: string|null,
+   *   charges_enabled: boolean,
+   *   payouts_enabled: boolean,
+   *   details_submitted: boolean
+   * }
+   *
+   * @returns {Promise<object>}
+   */
+  async function fetchStripeAccountStatus() {
+    const res = await fetch(`${ROOT_BASE}/farmer/stripe/account/`, {
+      method: "GET",
+      headers: authHeaders({ Accept: "application/json" }),
+      credentials: "include",
+    });
+
+    const parsed = await readJsonOrText(res);
+
+    if (!parsed.ok) {
+      const msg =
+        parsed.data?.error ||
+        parsed.data?.detail ||
+        `Stripe account status failed (HTTP ${parsed.status})`;
+      throw new Error(msg);
+    }
+
+    return parsed.data || {};
+  }
+
+  /**
+   * Generate a short-lived Stripe Express dashboard login link:
+   *   GET /farmer/stripe/dashboard/
+   *
+   * Response:
+   * { url: "https://connect.stripe.com/express/.../login/..." }
+   *
+   * @returns {Promise<string>} dashboard login URL
+   */
+  async function fetchStripeDashboardLink() {
+    const res = await fetch(`${ROOT_BASE}/farmer/stripe/dashboard/`, {
+      method: "GET",
+      headers: authHeaders({ Accept: "application/json" }),
+      credentials: "include",
+    });
+
+    const parsed = await readJsonOrText(res);
+
+    if (!parsed.ok) {
+      const msg =
+        parsed.data?.error ||
+        parsed.data?.detail ||
+        `Stripe dashboard link failed (HTTP ${parsed.status})`;
+      throw new Error(msg);
+    }
+
+    const url = parsed.data?.url ? String(parsed.data.url) : "";
+    if (!url) throw new Error("Stripe dashboard endpoint did not return a url.");
+
+    return url;
+  }
+
+  /**
+   * Updates the Stripe button label and the optional Stripe status box.
+   * This is the only Stripe UI logic you need in the portal now.
+   */
+  async function refreshStripeUi() {
+    if (!connectStripeBtn) return;
+
+    // Default “safe” UI before the request finishes
+    connectStripeBtn.disabled = true;
+    connectStripeBtn.textContent = "Checking Stripe status…";
+    setStripeStatus("Checking Stripe connection…", "muted");
+
+    try {
+      if (!requireProviderAuth("Checking Stripe status")) {
+        // If they aren’t logged in as provider, don’t spam the endpoint
+        connectStripeBtn.disabled = true;
+        connectStripeBtn.textContent = "Open Stripe Dashboard";
+        setStripeStatus("Log in as a Farmer/Provider to view payout settings.", "warning");
+        return;
+      }
+
+      stripeState = await fetchStripeAccountStatus();
+
+      const connected = Boolean(stripeState?.connected);
+      const acctId = stripeState?.stripe_account_id ? String(stripeState.stripe_account_id) : "";
+      const detailsSubmitted = Boolean(stripeState?.details_submitted);
+      const chargesEnabled = Boolean(stripeState?.charges_enabled);
+      const payoutsEnabled = Boolean(stripeState?.payouts_enabled);
+
+      // If onboarding was truly done already, this should be “good”.
+      // Still, we handle edge states cleanly for debugging / partial setups.
+      if (!connected) {
+        connectStripeBtn.disabled = true;
+        connectStripeBtn.textContent = "Open Stripe Dashboard";
+        setStripeStatus(
+          "Stripe is not connected to this farm yet. Onboarding is handled by the emailed link, so check your email or contact support.",
+          "warning",
+        );
+        return;
+      }
+
+      // Connected but still missing onboarding requirements
+      if (!detailsSubmitted || !payoutsEnabled) {
+        connectStripeBtn.disabled = true;
+        connectStripeBtn.textContent = "Open Stripe Dashboard";
+        setStripeStatus(
+          `Stripe is linked${acctId ? ` (${acctId})` : ""}, but setup isn’t fully complete yet (details/payouts not enabled). ` +
+            "Onboarding is handled by the emailed link — finish that flow, then refresh this page.",
+          "warning",
+        );
+        return;
+      }
+
+      // Fully enabled (the happy path)
+      connectStripeBtn.disabled = false;
+      connectStripeBtn.textContent = "Open Stripe Dashboard";
+      setStripeStatus(
+        `Stripe connected${acctId ? ` (${acctId})` : ""}. Use the dashboard for payouts and earnings statements.`,
+        "success",
+      );
+
+      // Optional: keep a small “mode” value in case you want it later
+      connectStripeBtn.dataset.mode = "dashboard";
+    } catch (err) {
+      console.warn("Stripe UI refresh failed:", err);
+
+      connectStripeBtn.disabled = true;
+      connectStripeBtn.textContent = "Open Stripe Dashboard";
+      setStripeStatus(
+        "Could not load Stripe status. Make sure you’re logged in as a provider and try again.",
+        "danger",
+      );
+    }
+  }
+
+  /**
+   * Optional callback handler.
+   *
+   * If you ever redirect farmers back onto farmer.html (instead of a backend JSON page),
+   * you can add:
+   *   farmer.html?stripe=return
+   * or
+   *   farmer.html?stripe=refresh
+   *
+   * Then this will call:
+   *   GET /farmer/stripe/return/   -> { status: "onboarding_complete", ... }
+   *   GET /farmer/stripe/refresh/ -> { status: "link_expired", message: ... }
+   *
+   * And it will show that message in the Stripe status box/page status.
+   */
+  async function handleStripeCallbackHints() {
+    const params = new URLSearchParams(window.location.search);
+    const mode = String(params.get("stripe") || "").toLowerCase();
+
+    if (!mode) return;
+    if (mode !== "return" && mode !== "refresh") return;
+
+    const endpoint = mode === "return" ? "/farmer/stripe/return/" : "/farmer/stripe/refresh/";
+
+    try {
+      const res = await fetch(`${ROOT_BASE}${endpoint}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        credentials: "include",
+      });
+
+      const parsed = await readJsonOrText(res);
+      if (!parsed.ok) return;
+
+      const status = parsed.data?.status ? String(parsed.data.status) : "";
+      const message = parsed.data?.message ? String(parsed.data.message) : "";
+
+      if (mode === "return") {
+        setStripeStatus("Stripe onboarding completed. Refreshing account status…", "success");
+        setStatus("Stripe onboarding completed. Refreshing account status…", "success");
+      } else {
+        setStripeStatus(message || "Stripe onboarding link expired. Request a new one.", "warning");
+        setStatus(message || "Stripe onboarding link expired. Request a new one.", "warning");
+      }
+
+      // Refresh portal state after callback
+      await refreshStripeUi();
+    } catch (err) {
+      console.warn("handleStripeCallbackHints failed:", err);
+    }
+  }
+
+  /**
+   * Click handler for “Open Stripe Dashboard”
+   * - Generates a fresh dashboard login link
+   * - Opens it in a new tab
+   */
+  async function openStripeDashboard() {
+    if (!connectStripeBtn) return;
+    if (!requireProviderAuth("Opening Stripe dashboard")) return;
+
+    try {
+      connectStripeBtn.disabled = true;
+      setStatus("Opening Stripe dashboard…", "muted");
+
+      const url = await fetchStripeDashboardLink();
+
+      // Open in a new tab so your portal page remains available
+      window.open(url, "_blank", "noopener,noreferrer");
+
+      setStatus("", "success");
+    } catch (err) {
+      setStatus(err?.message || String(err), "danger");
+    } finally {
+      connectStripeBtn.disabled = false;
+
+      // The state on Stripe can change between clicks, so keep it fresh
+      await refreshStripeUi();
+    }
+  }
+
+  // ==========================================================================
+  // API CALLS — INVENTORY / FARM / ORDERS
+  // ==========================================================================
+
+  async function loadInventory() {
+    if (!requireProviderAuth("Loading inventory")) {
+      inventory = [];
+      renderInventory();
+      return;
+    }
+
+    setStatus("Loading inventory…", "muted");
+
+    const res = await fetch(`${ROOT_BASE}/farmer/inventory/`, {
+      method: "GET",
+      headers: authHeaders({ Accept: "application/json" }),
+      credentials: "include",
+    });
+
+    const parsed = await readJsonOrText(res);
+
+    if (!parsed.ok) {
+      console.log("Inventory error:", parsed.status, parsed.data ?? parsed.raw);
+      setStatus(`Inventory failed (HTTP ${parsed.status})`, "danger");
+      inventory = [];
+      renderInventory();
+      return;
+    }
+
+    inventory = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
+    renderInventory();
+    setStatus("", "success");
+  }
+
+  /**
+   * Loads farms list and tries to find the owned farm to set the page title.
+   * This endpoint might work for both auth types depending on your backend.
+   */
+  async function loadFarmProfile() {
+    try {
+      const res = await fetch(`${ROOT_BASE}/farms/`, {
+        method: "GET",
+        headers: authHeaders({ Accept: "application/json" }),
+        credentials: "include",
+      });
+
+      const parsed = await readJsonOrText(res);
+
+      if (!parsed.ok || !Array.isArray(parsed.data)) {
+        console.log("Farms fetch failed:", parsed.status, parsed.data ?? parsed.raw);
+        return;
+      }
+
+      const ownedFarm = parsed.data.find((f) => f.is_owner === true);
+      if (!ownedFarm) return;
+
+      const farmName = String(ownedFarm.name || "").trim();
+      if (!farmName) return;
+
+      if (farmerPortalTitle) farmerPortalTitle.textContent = `${farmName}'s Farmer Portal`;
+      document.title = `${farmName} | Farmer Portal`;
+    } catch (err) {
+      console.warn("loadFarmProfile failed:", err);
+    }
+  }
+
+  async function loadOrders() {
+    if (!requireProviderAuth("Loading orders")) {
+      orders = [];
+      renderOrders();
+      return;
+    }
+
+    setStatus("Loading orders…", "muted");
+
+    const res = await fetch(`${ROOT_BASE}/farmer/orders/`, {
+      method: "GET",
+      headers: authHeaders({ Accept: "application/json" }),
+      credentials: "include",
+    });
+
+    const parsed = await readJsonOrText(res);
+
+    if (!parsed.ok) {
+      console.log("Orders error:", parsed.status, parsed.data ?? parsed.raw);
+      setStatus(`Orders failed (HTTP ${parsed.status})`, "danger");
+      orders = [];
+      renderOrders();
+      return;
+    }
+
+    orders = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
+    renderOrders();
+    setStatus("", "success");
+  }
+
+  async function createProductFromForm() {
+    if (!requireProviderAuth("Adding a product")) return;
+
+    setStatus("Adding product…", "muted");
+    if (addProductBtn) addProductBtn.disabled = true;
+
+    try {
+      const name = String(document.getElementById("pName")?.value || "").trim();
+      const price = String(document.getElementById("pPrice")?.value || "").trim();
+      const stock = String(document.getElementById("pQty")?.value || "").trim();
+      const category = String(document.getElementById("pCategory")?.value || "").trim();
+      const imageEl = document.getElementById("pImage");
+
+      if (!name || !price || !stock || !category) {
+        setStatus("Please fill out name, price, stock, and category.", "danger");
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append("name", name);
+      fd.append("price", price);
+      fd.append("stock", stock);
+      fd.append("category", category);
+
+      const file = imageEl?.files?.[0];
+      if (file) fd.append("photo", file);
+
+      const res = await fetch(`${ROOT_BASE}/farmer/products/`, {
+        method: "POST",
+        headers: authHeaders(), // FormData sets Content-Type automatically
+        body: fd,
+        credentials: "include",
+      });
+
+      const parsed = await readJsonOrText(res);
+      if (!parsed.ok) {
+        console.log("Create product error:", parsed.status, parsed.data ?? parsed.raw);
+        setStatus(`Add product failed (HTTP ${parsed.status})`, "danger");
+        return;
+      }
+
+      addProductForm?.reset();
+      setStatus("", "success");
+      await loadInventory();
+    } finally {
+      if (addProductBtn) addProductBtn.disabled = false;
     }
   }
 
   async function deleteProduct(productId) {
-    setStatus("Deleting…", "muted");
+    if (!requireProviderAuth("Deleting a product")) return;
 
-    const res = await fetch(`${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/`, {
+    setStatus("Deleting product…", "muted");
+
+    const res = await fetch(`${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/delete/`, {
       method: "DELETE",
-      credentials: "include",
       headers: authHeaders({ Accept: "application/json" }),
+      credentials: "include",
     });
 
     const parsed = await readJsonOrText(res);
     if (!parsed.ok) {
-      if (parsed.status === 401) showProvider401Help();
-      else setStatus(`Delete failed (HTTP ${parsed.status})`, "danger");
+      console.log("Delete product error:", parsed.status, parsed.data ?? parsed.raw);
+      setStatus(`Delete failed (HTTP ${parsed.status})`, "danger");
       return;
     }
 
     setStatus("", "success");
     await loadInventory();
+  }
+
+  async function confirmOrder(orderId) {
+    if (!requireProviderAuth("Confirming an order")) return;
+
+    setStatus("Confirming…", "muted");
+
+    const res = await fetch(`${ROOT_BASE}/farmer/orders/${encodeURIComponent(orderId)}/confirm/`, {
+      method: "PUT",
+      headers: authHeaders({ Accept: "application/json" }),
+      credentials: "include",
+    });
+
+    const parsed = await readJsonOrText(res);
+    if (!parsed.ok) {
+      console.log("Confirm order error:", parsed.status, parsed.data ?? parsed.raw);
+      setStatus(`Confirm failed (HTTP ${parsed.status})`, "danger");
+      return;
+    }
+
+    setStatus("", "success");
+    await loadOrders();
   }
 
   // ==========================================================================
@@ -854,7 +877,6 @@
   function wireEvents() {
     invSearch?.addEventListener("input", renderInventory);
     refreshInventoryBtn?.addEventListener("click", loadInventory);
-
     refreshFarmerOrdersBtn?.addEventListener("click", loadOrders);
 
     addProductForm?.addEventListener("submit", (e) => {
@@ -876,23 +898,16 @@
     farmerOrdersBody?.addEventListener("click", (e) => {
       const btn = e.target?.closest?.("[data-confirm]");
       const id = btn?.getAttribute?.("data-confirm");
-      if (id) confirmOrder(id);
+      if (!id) return;
+      confirmOrder(id);
     });
+
+    // Stripe dashboard button (no onboarding from portal)
+    connectStripeBtn?.addEventListener("click", openStripeDashboard);
 
     editProductForm?.addEventListener("submit", (e) => {
       e.preventDefault();
       submitEditProduct();
-    });
-
-    // Stripe button: opens Stripe dashboard/setup link from POST /account
-    connectStripeBtn?.addEventListener("click", handleStripeButtonClick);
-
-    // Sales
-    refreshSalesBtn?.addEventListener("click", () => loadSalesReport());
-    applySalesRangeBtn?.addEventListener("click", () => {
-      const from = salesFrom?.value || "";
-      const to = salesTo?.value || "";
-      loadSalesReport({ from, to });
     });
   }
 
@@ -903,27 +918,14 @@
   document.addEventListener("DOMContentLoaded", async () => {
     wireEvents();
 
-    // Core portal data
+    await loadFarmProfile();
     await loadInventory();
     await loadOrders();
 
-    // Stripe status panel (no redirect)
-    await refreshStripePanel({ showSpinner: true });
+    // Optional: if you bounce back to farmer.html?stripe=return|refresh
+    await handleStripeCallbackHints();
 
-    // Sales report (if UI exists)
-    await loadSalesReport();
-
-    // Optional: if the user came back from Stripe in THIS tab,
-    // we can check return status and refresh Stripe panel.
-    // This is harmless even if they didn’t come from Stripe.
-    try {
-      const ret = await fetchStripeReturnStatus();
-      if (ret?.status === "onboarding_complete") {
-        setStripeStatus("Stripe onboarding complete ✅", "success");
-        await refreshStripePanel({ showSpinner: false });
-      }
-    } catch {
-      // ignore
-    }
+    // Always refresh Stripe UI state for the portal button
+    await refreshStripeUi();
   });
 })();
