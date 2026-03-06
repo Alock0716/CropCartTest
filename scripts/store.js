@@ -825,6 +825,10 @@
     const deliveryBadgeHtml = getDeliveryBadgeHtml(product);
     const distanceNoteHtml = getDistanceNoteHtml(product);
 
+    console.log("Customer:", customerPoint);
+    console.log("Farm:", farm);
+    console.log("Distance:", miles);
+    console.log("Radius:", farm.radiusMiles);
     /**
      * If image fails to load, we:
      * 1) hide/remove the <img>
