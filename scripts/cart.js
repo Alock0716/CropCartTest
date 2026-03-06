@@ -502,39 +502,12 @@
 
     tableBodyEl.innerHTML = items
       .map((item) => {
-        const raw = item.product || {};
-
-        const rawProductId = String(
-          raw?.id ??
-          raw?.product_id ??
-          item?.product_id ??
-          ""
-        ).trim();
-
-        const fullProduct =
-          productLookup[rawProductId] ||
-          raw;
-
-        const name =
-          fullProduct?.name ??
-          fullProduct?.product_name ??
-          raw?.name ??
-          raw?.product_name ??
-          "Item";
-
-        const price = Number(
-          fullProduct?.price ??
-          fullProduct?.unit_price ??
-          raw?.price ??
-          raw?.unit_price ??
-          item?.price ??
-          item?.unit_price ??
-          0
-        ) || 0;
-
+        const p = item.product || {};
+        const name = p.name || "Item";
+        const price = Number(p.price) || 0;
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
-
+        
         let deliveryRow = null;
         if (delivery) {
           deliveryRow =
