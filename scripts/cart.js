@@ -240,9 +240,7 @@
     return items.map((item) => {
       const rawProduct = item.product || {};
       const fullProduct =
-        productLookup[String(rawProduct.id)] ||
-        productLookup[String(item.product_id)] ||
-        rawProduct;
+        productLookup[String(rawProduct.id)];
 
       const annotated = delivery.annotateProductDelivery(
         fullProduct,
@@ -506,6 +504,8 @@
 
     tableBodyEl.innerHTML = items
       .map((item) => {
+        console.log(items);
+        
         const p = item.product || {};
         const name = p.name || "Item";
         const price = Number(p.price) || 0;
@@ -591,7 +591,8 @@
         `;
       })
       .join("");
-
+      console.log(item);
+      
     subtotalEl.textContent = formatMoney(cart?.total_price || cart?.total || 0);
     totalEl.textContent = formatMoney(cart?.total_price || cart?.total || 0);
 
