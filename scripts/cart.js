@@ -85,7 +85,9 @@
 
     productLookup = {};
     for (const product of rows) {
-      productLookup[String(product.id)] = product;
+      const key = String(product?.id ?? product?.product_id ?? "").trim();
+      if (!key) continue;
+      productLookup[key] = product;
     }
   }
 
@@ -510,14 +512,35 @@
     tableBodyEl.innerHTML = items
       .map((item) => {
         const raw = item.product || {};
+
+        const rawProductId = String(
+          raw?.id ??
+          raw?.product_id ??
+          item?.product_id ??
+          ""
+        ).trim();
+
         const fullProduct =
-          productLookup[String(raw.id)] ||
-          productLookup[String(item.product_id)] ||
+          productLookup[rawProductId] ||
           raw;
 
-        const name = fullProduct.name || raw.name || "Item";
-        const price =
-          Number(fullProduct.price ?? raw.price ?? item.unit_price ?? 0) || 0;
+        const name =
+          fullProduct?.name ??
+          fullProduct?.product_name ??
+          raw?.name ??
+          raw?.product_name ??
+          "Item";
+
+        const price = Number(
+          fullProduct?.price ??
+          fullProduct?.unit_price ??
+          raw?.price ??
+          raw?.unit_price ??
+          item?.price ??
+          item?.unit_price ??
+          0
+        ) || 0;
+
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
 
@@ -532,8 +555,20 @@
             );
         }
 
-        const farmName = fullProduct.farm_name || raw.farm_name || "";
-        const farmLocation = fullProduct.farm_location || raw.farm_location || "";
+        const farmName = String(
+          fullProduct?.farm_name ??
+          fullProduct?.farm?.farm_name ??
+          fullProduct?.farm?.name ??
+          raw?.farm_name ??
+          ""
+        ).trim();
+
+        const farmLocation = String(
+          fullProduct?.farm_location ??
+          fullProduct?.farm?.location ??
+          raw?.farm_location ??
+          ""
+        ).trim();
 
         return `
           <tr>
