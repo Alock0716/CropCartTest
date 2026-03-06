@@ -94,7 +94,6 @@
     }
   }
 
-
   function getDeliveryApi() {
     return window.CC?.delivery && window.CC.delivery.__sharedReady
       ? window.CC.delivery
