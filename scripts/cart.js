@@ -38,6 +38,12 @@
   // { id, user, items: [{ id, product: { id, name, price }, quantity, subtotal }], total }
   let cart = null;
 
+  //for location checks
+  let normalizedFarms = [];
+  let savedCustomerPoint = null;
+  /* Product lookup cache (id → product) */
+  let productLookup = {};
+
   // ===========================================================================
   // AUTH / ERROR HANDLING
   // ===========================================================================
@@ -54,6 +60,29 @@
   // ===========================================================================
   // API
   // ===========================================================================
+
+    /**
+   * Fetch all products and build a lookup table
+   * product_id → product
+   */
+  async function loadProductLookup() {
+    try {
+      const res = await fetch(`${CC.API_BASE}/api/products/`);
+      const data = await res.json();
+
+      const list = data?.data || data || [];
+
+      productLookup = {};
+
+      for (const p of list) {
+        productLookup[String(p.id)] = p;
+      }
+
+    } catch (err) {
+      console.error("Failed loading product lookup", err);
+      productLookup = {};
+    }
+  }
 
   /**
    * Load the current user's cart from the backend.
@@ -81,6 +110,71 @@
   function formatMoney(n) {
     const v = Number(n) || 0;
     return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
+  }
+
+    function getDeliveryApi() {
+    return CC?.delivery && CC.delivery.__sharedReady ? CC.delivery : null;
+  }
+
+  function getSavedCustomerPoint() {
+    const delivery = getDeliveryApi();
+    if (!delivery) return null;
+
+    const saved = delivery.getSavedAddress?.();
+    if (!saved) return null;
+
+    return delivery.toPoint?.(saved.lat, saved.lng) || null;
+  }
+
+  async function loadDeliveryContext() {
+    const delivery = getDeliveryApi();
+    if (!delivery) {
+      normalizedFarms = [];
+      savedCustomerPoint = null;
+      return;
+    }
+
+    normalizedFarms = await delivery.fetchNormalizedFarms();
+    savedCustomerPoint = getSavedCustomerPoint();
+  }
+
+  function annotateCartProduct(product) {
+    const delivery = getDeliveryApi();
+    if (!delivery) {
+      return {
+        product,
+        farm: null,
+        inRange: null,
+        distanceMiles: null,
+      };
+    }
+
+    return delivery.annotateProductDelivery(
+      product || {},
+      savedCustomerPoint,
+      delivery.buildFarmNameMap(normalizedFarms),
+    );
+  }
+
+  function renderDeliveryBadge(row) {
+    const delivery = getDeliveryApi();
+    if (!delivery) {
+      return `<span class="badge cc-delivery-badge text-bg-secondary">Range Unknown</span>`;
+    }
+
+    const label = delivery.getDeliveryStatusLabel(row?.inRange ?? null);
+    const klass = delivery.getDeliveryStatusClass(row?.inRange ?? null);
+
+    return `<span class="badge cc-delivery-badge ${CC.escapeHtml(klass)}">${CC.escapeHtml(label)}</span>`;
+  }
+
+  function renderDistanceNote(row) {
+    const miles = row?.distanceMiles;
+    if (!Number.isFinite(miles)) {
+      return `<span class="cc-distance-note">Distance unavailable</span>`;
+    }
+
+    return `<span class="cc-distance-note">${CC.escapeHtml(miles.toFixed(1))} mi away</span>`;
   }
 
   // ===========================================================================
@@ -322,16 +416,41 @@
 
     tableBodyEl.innerHTML = items
       .map((item) => {
-        const p = item.product || {};
+        const raw = item.product || {};
+        const fullProduct =
+          productLookup[String(raw.id)] ||
+          raw;
+
         const name = p.name || "Item";
         const price = Number(p.price) || 0;
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
 
+        const deliveryRow = CC.delivery.annotateProductDelivery(
+          fullProduct,
+          savedCustomerPoint,
+          CC.delivery.buildFarmNameMap(normalizedFarms)
+        );
+        const farmName = fullProduct.farm_name;
+        const farmLocation = fullProduct.farm_location;
+
         return `
           <tr>
             <td class="px-3">
-              <div class="fw-semibold">${name}</div>
+              <div class="cc-cart-item-meta">
+                <div class="fw-semibold">${CC.escapeHtml(name)}</div>
+                <div class="cc-cart-item-subline">
+                  ${CC.escapeHtml(farmName)}
+                  ${farmLocation ? ` • ${CC.escapeHtml(farmLocation)}` : ""}
+                </div>
+                <div class="cc-cart-item-badges">
+                  <span class="badge cc-delivery-badge ${
+                    CC.delivery.getDeliveryStatusClass(deliveryRow.inRange)
+                  }">
+                    ${CC.delivery.getDeliveryStatusLabel(deliveryRow.inRange)}
+                  </span>
+                </div>
+              </div>
             </td>
 
             <td>${formatMoney(price)}</td>
@@ -399,7 +518,13 @@
   // ===========================================================================
 
   async function refresh() {
-    await fetchCart();
+
+    await Promise.all([
+      fetchCart(),
+      loadProductLookup(),
+      loadDeliveryContext()
+    ]);
+
     renderCart();
   }
 

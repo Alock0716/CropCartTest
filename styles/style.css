@@ -718,3 +718,66 @@ body .cc-muted {
 .cc-guest-line-total {
   width: 110px;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Delivery range badges                                                       */
+/* -------------------------------------------------------------------------- */
+
+.cc-delivery-badge {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cc-delivery-badge.text-bg-success {
+  background: rgba(47, 122, 77, 0.16) !important;
+  color: #14532d !important;
+  border: 1px solid rgba(47, 122, 77, 0.35) !important;
+}
+
+.cc-delivery-badge.text-bg-danger {
+  background: rgba(185, 28, 28, 0.12) !important;
+  color: #991b1b !important;
+  border: 1px solid rgba(185, 28, 28, 0.28) !important;
+}
+
+.cc-delivery-badge.text-bg-secondary {
+  background: rgba(107, 114, 128, 0.12) !important;
+  color: #4b5563 !important;
+  border: 1px solid rgba(107, 114, 128, 0.24) !important;
+}
+
+.cc-delivery-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.cc-distance-note {
+  font-size: 0.9rem;
+  color: var(--cc-muted);
+}
+
+.cc-cart-item-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cc-cart-item-subline {
+  font-size: 0.92rem;
+  color: var(--cc-muted);
+}
+
+.cc-cart-item-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
