@@ -238,9 +238,9 @@
     const farmMap = delivery.buildFarmNameMap(normalizedFarms);
 
     return items.map((item) => {
-      const rawProduct = item.product || {};
+      const rawProduct = item || {};
       const fullProduct =
-        productLookup[String(rawProduct.id)];
+        productLookup[String(rawProduct.product)];
 
       const annotated = delivery.annotateProductDelivery(
         fullProduct,
