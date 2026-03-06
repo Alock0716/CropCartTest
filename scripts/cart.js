@@ -506,14 +506,14 @@
       .map((item) => {
         console.log(items);
         
-        const p = item.product || {};
-        const name = p.name || "Item";
-        const price = Number(p.price) || 0;
+        const p = item || {};
+        const name = p.product_name || "Item";
+        const price = Number(p.product_price) || 0;
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
 
         const fullProduct =
-          productLookup[String(p.id)] ||
+          productLookup[String(p.product)] ||
           p;
 
         let deliveryRow = null;
@@ -592,7 +592,7 @@
       })
       .join("");
       console.log(item);
-      
+
     subtotalEl.textContent = formatMoney(cart?.total_price || cart?.total || 0);
     totalEl.textContent = formatMoney(cart?.total_price || cart?.total || 0);
 
