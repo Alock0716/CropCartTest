@@ -221,7 +221,12 @@
 
     const label = delivery.getDeliveryStatusLabel(row.inRange);
     const klass = delivery.getDeliveryStatusClass(row.inRange);
-
+    
+    console.log("Customer:", customerPoint);
+    console.log("Farm:", farm);
+    console.log("Distance:", miles);
+    console.log("Radius:", farm.radiusMiles);
+    
     return `
       <span class="badge cc-delivery-badge ${CC.escapeHtml(klass)}">
         ${CC.escapeHtml(label)}
@@ -235,6 +240,8 @@
     if (!Number.isFinite(miles)) {
       return `<span class="cc-distance-note">Distance unavailable</span>`;
     }
+
+   
 
     return `<span class="cc-distance-note">${CC.escapeHtml(miles.toFixed(1))} mi away</span>`;
   }
@@ -825,10 +832,7 @@
     const deliveryBadgeHtml = getDeliveryBadgeHtml(product);
     const distanceNoteHtml = getDistanceNoteHtml(product);
 
-    console.log("Customer:", customerPoint);
-    console.log("Farm:", farm);
-    console.log("Distance:", miles);
-    console.log("Radius:", farm.radiusMiles);
+
     /**
      * If image fails to load, we:
      * 1) hide/remove the <img>
