@@ -157,5 +157,110 @@
       "url": "https://d1nnhq1iqs57tb.cloudfront.net/farmer/inventory",
       "data": []
     }
+  },
+
+  "field names only": {
+    "timestamp": "2026-03-06T19:59:23.109Z",
+    "api_base": "https://d1nnhq1iqs57tb.cloudfront.net/api",
+    "root_base": "https://d1nnhq1iqs57tb.cloudfront.net",
+    "field_summary": {
+      "products": {
+        "ok": true,
+        "status": 200,
+        "url": "https://d1nnhq1iqs57tb.cloudfront.net/api/products/",
+        "type": "array",
+        "item_count": 4,
+        "first_item_top_level_keys": [
+          "category",
+          "category_display",
+          "description",
+          "farm_id",
+          "farm_location",
+          "farm_name",
+          "id",
+          "name",
+          "photo_url",
+          "price",
+          "stock"
+        ],
+        "first_item_flattened_keys": [
+          "category",
+          "category_display",
+          "description",
+          "farm_id",
+          "farm_location",
+          "farm_name",
+          "id",
+          "name",
+          "photo_url",
+          "price",
+          "stock"
+        ]
+      },
+      "cart": {
+        "ok": true,
+        "status": 200,
+        "url": "https://d1nnhq1iqs57tb.cloudfront.net/api/cart/",
+        "type": "object",
+        "top_level_keys": [
+          "id",
+          "items",
+          "total_price",
+          "user"
+        ],
+        "flattened_keys": [
+          "id",
+          "items",
+          "items[]",
+          "items[].id",
+          "items[].product",
+          "items[].product_name",
+          "items[].product_price",
+          "items[].quantity",
+          "items[].subtotal",
+          "total_price",
+          "user"
+        ]
+      },
+      "farms": {
+        "ok": true,
+        "status": 200,
+        "url": "https://d1nnhq1iqs57tb.cloudfront.net/farms/",
+        "type": "array",
+        "item_count": 5,
+        "first_item_top_level_keys": [
+          "delivery_radius_miles",
+          "description",
+          "id",
+          "is_owner",
+          "latitude",
+          "location",
+          "logo_url",
+          "longitude",
+          "name"
+        ],
+        "first_item_flattened_keys": [
+          "delivery_radius_miles",
+          "description",
+          "id",
+          "is_owner",
+          "latitude",
+          "location",
+          "logo_url",
+          "longitude",
+          "name"
+        ]
+      },
+      "farm_products": {
+        "ok": true,
+        "status": 200,
+        "url": "https://d1nnhq1iqs57tb.cloudfront.net/farmer/inventory",
+        "type": "array",
+        "item_count": 0,
+        "first_item_top_level_keys": [],
+        "first_item_flattened_keys": []
+      }
+    }
   }
+
 }
