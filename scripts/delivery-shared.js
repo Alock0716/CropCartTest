@@ -740,16 +740,11 @@
     }
 
     const miles = distanceMiles(customerPoint, farm);
-    const radius =
-        Number.isFinite(Number(farm.radiusMiles))
-          ? Number(farm.radiusMiles)
-          : getDefaultRadiusMiles();
-          
+
     return {
       product,
       farm,
-      radius,
-      inRange: Number.isFinite(miles) ? miles <= radius : null,
+      inRange: Number.isFinite(miles) ? miles <= Number(farm.radiusMiles || 0) : null,
       distanceMiles: miles,
     };
   }
