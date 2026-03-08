@@ -105,7 +105,7 @@
       return { ok: false, missing: ["user object"], customer: null };
     }
 
-    const preferredDeliveryAddress = String(
+    let preferredDeliveryAddress = String(
       rawCustomer.preferred_delivery_address || ""
     ).trim();
 
@@ -115,14 +115,12 @@
     const hasLat = isFiniteCoord(lat);
     const hasLng = isFiniteCoord(lng);
 
-    if (!preferredDeliveryAddress) {
-      missing.push("preferred_delivery_address");
-    }
+    
 
-    if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
+    if ((!hasLat || !hasLng || !preferredDeliveryAddress) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
       lat = config.TEST_CUSTOMER_LAT;
       lng = config.TEST_CUSTOMER_LONG;
-      preferred_delivery_address = config.TEST_DELIVERY_ADDRESS;
+      preferredDeliveryAddress = config.TEST_DELIVERY_ADDRESS;
 
       console.warn(
         "delivery-radius: customer lat/lng missing. Using TEST_CUSTOMER coordinates from config.",
@@ -131,8 +129,11 @@
     } else {
       if (!hasLat) missing.push("lat");
       if (!hasLng) missing.push("lng");
+      if (!preferredDeliveryAddress) missing.push("preferred_delivery_address");
     }
-
+    
+    
+    
     return {
       ok: missing.length === 0,
       missing,
