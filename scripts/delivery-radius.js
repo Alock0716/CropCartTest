@@ -245,7 +245,7 @@
     if (!customerCheck.ok) {
       const message = `Missing customer data: ${customerCheck.missing.join(", ")}`;
       console.error(
-        "delivery-radius: customer data invalid. Expected preferred_delivery_address, lat, and lng on the customer record.",
+        "delivery-radius: customer data invalid. Expected preferred_delivery_address, lat, and long on the customer record.",
         customerRecord,
       );
       setPageStatus(message, "danger");

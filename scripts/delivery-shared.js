@@ -20,6 +20,12 @@
       HQ_ICON_URL: "./Images/CClogo1.png",
       FARMS_PATH: "/farms/",
       CUSTOMER_PATH: "auth/profile/delivery-address/", // update this once the finalized API route is ready
+
+      ENABLE_DELIVERY_TEST_DEFAULTS: Boolean(cfg.ENABLE_DELIVERY_TEST_DEFAULTS),
+      TEST_FARM_LAT: Number(cfg.TEST_FARM_LAT),
+      TEST_FARM_LONG: Number(cfg.TEST_FARM_LONG),
+      TEST_CUSTOMER_LAT: Number(cfg.TEST_CUSTOMER_LAT),
+      TEST_CUSTOMER_LONG: Number(cfg.TEST_CUSTOMER_LONG),
     };
   }
 
@@ -88,6 +94,7 @@
   }
 
   function validateCustomer(rawCustomer) {
+    const config = getDeliveryConfig();
     const missing = [];
 
     if (!rawCustomer || typeof rawCustomer !== "object") {
@@ -103,26 +110,46 @@
       };
     }
 
-    if (!String(rawCustomer.preferred_delivery_address || "").trim()) {
+    const preferredDeliveryAddress = String(
+      rawCustomer.preferred_delivery_address || "",
+    ).trim();
+
+    const hasLat = isFiniteCoord(rawCustomer.lat);
+    const hasLng = isFiniteCoord(rawCustomer.lng);
+
+    let lat = Number(rawCustomer.lat);
+    let lng = Number(rawCustomer.lng);
+
+    if (!preferredDeliveryAddress) {
       missing.push("preferred_delivery_address");
     }
-    if (!isFiniteCoord(rawCustomer.lat)) missing.push("lat");
-    if (!isFiniteCoord(rawCustomer.lng)) missing.push("lng");
+
+    if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
+      lat = config.TEST_CUSTOMER_LAT;
+      lng = config.TEST_CUSTOMER_LONG;
+
+      console.warn(
+        'delivery-radius: customer lat/lng missing. Using test default coordinates from config. Expected customer.lat and customer.lng.',
+        rawCustomer,
+      );
+    } else {
+      if (!hasLat) missing.push("lat");
+      if (!hasLng) missing.push("lng");
+    }
 
     return {
       ok: missing.length === 0,
       missing,
       customer: {
-        preferred_delivery_address: String(
-          rawCustomer.preferred_delivery_address || "",
-        ).trim(),
-        lat: Number(rawCustomer.lat),
-        lng: Number(rawCustomer.lng),
+        preferred_delivery_address: preferredDeliveryAddress,
+        lat,
+        lng,
       },
     };
   }
 
   function validateFarm(rawFarm, index = 0) {
+    const config = getDeliveryConfig();
     const missing = [];
 
     if (!rawFarm || typeof rawFarm !== "object") {
@@ -135,11 +162,33 @@
     if (rawFarm.id === undefined || rawFarm.id === null || rawFarm.id === "") {
       missing.push("id");
     }
-    if (!String(rawFarm.name || "").trim()) missing.push("name");
-    if (!String(rawFarm.farm_location || "").trim()) missing.push("farm_location");
-    if (!isFiniteCoord(rawFarm.lat)) missing.push("lat");
-    if (!isFiniteCoord(rawFarm.lng)) missing.push("lng");
-    if (!String(rawFarm.logo_url || "").trim()) missing.push("logo_url");
+
+    const name = String(rawFarm.name || "").trim();
+    const farmLocation = String(rawFarm.farm_location || "").trim();
+    const logoUrl = String(rawFarm.logo_url || "").trim();
+
+    if (!name) missing.push("name");
+    if (!farmLocation) missing.push("farm_location");
+    if (!logoUrl) missing.push("logo_url");
+
+    const hasLat = isFiniteCoord(rawFarm.lat);
+    const hasLng = isFiniteCoord(rawFarm.lng);
+
+    let lat = Number(rawFarm.lat);
+    let lng = Number(rawFarm.lng);
+
+    if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
+      lat = config.TEST_FARM_LAT;
+      lng = config.TEST_FARM_LONG;
+
+      console.warn(
+        `delivery-radius: farm "${name || `[index ${index}]`}" is missing lat/lng. Using test default farm coordinates from config. Expected farm.lat and farm.lng.`,
+        rawFarm,
+      );
+    } else {
+      if (!hasLat) missing.push("lat");
+      if (!hasLng) missing.push("lng");
+    }
 
     if (missing.length) {
       missing.forEach((fieldName) => {
@@ -153,11 +202,11 @@
 
     return {
       id: rawFarm.id,
-      name: String(rawFarm.name).trim(),
-      farm_location: String(rawFarm.farm_location).trim(),
-      lat: Number(rawFarm.lat),
-      lng: Number(rawFarm.lng),
-      logo_url: String(rawFarm.logo_url).trim(),
+      name,
+      farm_location: farmLocation,
+      lat,
+      lng,
+      logo_url: logoUrl,
       delivery_radius: Number(rawFarm.delivery_radius),
     };
   }
