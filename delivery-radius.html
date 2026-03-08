@@ -19,16 +19,17 @@
 
   <body class="cc-body" data-page="delivery-radius">
     <nav class="navbar navbar-expand-lg cc-navbar sticky-top">
-      <div class="container">
-        <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="./index.html">
+      <div class="container-xxl px-3">
+        <a
+          class="navbar-brand d-flex align-items-center gap-2"
+          href="index.html"
+        >
           <img
+            class="cc-mark"
             src="./Images/CClogo1.png"
-            alt="CropCart"
-            width="36"
-            height="36"
-            class="rounded-circle object-fit-cover"
+            alt="Crop Cart Logo IMG"
           />
-          <span>CropCart</span>
+          <span class="fw-bold">CropCart</span>
         </a>
 
         <button
@@ -43,12 +44,25 @@
           <span class="navbar-toggler-icon"></span>
         </button>
 
-        <div id="ccNav" class="collapse navbar-collapse">
-          <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-            <li class="nav-item"><a class="nav-link" href="./index.html">Store</a></li>
-            <li class="nav-item"><a class="nav-link" href="./cart.html">Cart</a></li>
-            <li class="nav-item"><a class="nav-link" href="./account.html">Account</a></li>
-            <li class="nav-item"><a class="nav-link active" href="./delivery-radius.html">Delivery Map</a></li>
+        <div class="collapse navbar-collapse" id="ccNav">
+          <ul class="navbar-nav ms-auto gap-lg-2">
+            <li class="nav-item">
+              <a class="nav-link" href="index.html">Store</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="cart.html">My Cart</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="farmer.html">Farmer Portal</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="delivery-radius.html">Check Delivery Range</a>
+            </li>
+            <li>
+              <ul class="navbar-nav ms-auto gap-lg-2" id="authNav">
+                <!-- auth.js populates this -->
+              </ul>
+            </li>
           </ul>
         </div>
       </div>
