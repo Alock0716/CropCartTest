@@ -19,6 +19,7 @@
     <!-- Shared config + helpers -->
     <script src="./scripts/config.js"></script>
     <script src="./scripts/utils.js"></script>
+    <script src="./scripts/delivery-shared.js"></script>
 
     <!-- Shared auth + page boot -->
     <script defer src="./scripts/auth.js"></script>
@@ -152,6 +153,10 @@
                 />
               </div>
 
+              <div class="col-12">
+                <div id="checkoutAddressStatus" class="small text-muted"></div>
+              </div>
+
               <div class="col-12 d-grid">
                 <button
                   class="btn cc-btn btn-lg"
@@ -212,6 +217,13 @@
               <span class="text-muted">Tax</span>
               <span id="sumTax">$0.00</span>
             </div>
+
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-muted">Delivery fee</span>
+              <span id="sumDeliveryFee">TBD</span>
+            </div>
+
+            <div id="deliveryFeeNote" class="small text-muted mb-2"></div>
 
             <div class="d-flex justify-content-between fw-bold">
               <span>Total</span>

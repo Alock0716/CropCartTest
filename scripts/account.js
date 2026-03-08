@@ -343,9 +343,61 @@ wireFavoriteShopHandoff();
     };
   }
 
+    function getAddressFromAuth(auth) {
+    const u =
+      auth?.user || auth?.data?.user || auth?.account || auth?.profile || auth || null;
+
+    if (!u) return null;
+
+    const lat = Number(u.lat);
+    const lng = Number(u.lng);
+
+    const addressObj = {
+      address_line1: String(u.address_line1 || u.street_address || "").trim(),
+      city: String(u.city || "").trim(),
+      state: String(u.state || "").trim(),
+      postal_code: String(u.postal_code || u.zip || "").trim(),
+      country: String(u.country || "US").trim(),
+
+      preferred_delivery_address: String(
+        u.preferred_delivery_address || u.preferredDeliveryAddress || ""
+      ).trim(),
+
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+    };
+
+    const hasStructuredAddress =
+      addressObj.address_line1 &&
+      addressObj.city &&
+      addressObj.state &&
+      addressObj.postal_code;
+
+    const hasPreferredAddress = !!addressObj.preferred_delivery_address;
+    const hasCoords = Number.isFinite(addressObj.lat) && Number.isFinite(addressObj.lng);
+
+    if (!hasStructuredAddress && !hasPreferredAddress && !hasCoords) {
+      return null;
+    }
+
+    return addressObj;
+  }
+
+  function hasUsableSavedAddress(addressObj) {
+    if (!addressObj) return false;
+
+    return !!(
+      String(addressObj.address_line1 || "").trim() &&
+      String(addressObj.city || "").trim() &&
+      String(addressObj.state || "").trim() &&
+      String(addressObj.postal_code || "").trim()
+    );
+  }
+
   function formatAddressLine(a) {
     if (!a) return "—";
-    const parts = [
+
+    const structuredParts = [
       a.address_line1 || a.street_address || "",
       a.city || "",
       a.state || "",
@@ -354,7 +406,15 @@ wireFavoriteShopHandoff();
       .map((s) => String(s || "").trim())
       .filter(Boolean);
 
-    return parts.length ? parts.join(", ") : "—";
+    if (structuredParts.length) {
+      return structuredParts.join(", ");
+    }
+
+    const preferred = String(
+      a.preferred_delivery_address || a.preferredDeliveryAddress || ""
+    ).trim();
+
+    return preferred || "—";
   }
 
   function renderAddressSummary(sourceLabel, addressObj) {
@@ -634,16 +694,29 @@ wireFavoriteShopHandoff();
   // ===========================================================================
 
   async function loadDefaultAddress() {
+    // 0) auth/profile address first
+    const auth = CC.auth.getAuth?.() || null;
+    const authAddr = getAddressFromAuth(auth);
+
+    if (authAddr) {
+      renderAddressSummary("Saved on your account", authAddr);
+
+      if (typeof refreshDeliveryAddressBadge === "function") {
+        refreshDeliveryAddressBadge(authAddr);
+      }
+
+      return authAddr;
+    }
+
     // 1) local override
     const localAddr = getLocalJson(LOCAL_ADDRESS_KEY, null);
-    if (
-      localAddr?.address_line1 &&
-      localAddr?.city &&
-      localAddr?.state &&
-      localAddr?.postal_code
-    ) {
+    if (hasUsableSavedAddress(localAddr)) {
       renderAddressSummary("Saved on this device", localAddr);
-      refreshDeliveryAddressBadge(localAddr);
+
+      if (typeof refreshDeliveryAddressBadge === "function") {
+        refreshDeliveryAddressBadge(localAddr);
+      }
+
       return localAddr;
     }
 
@@ -659,7 +732,11 @@ wireFavoriteShopHandoff();
 
     if (!res.ok) {
       renderAddressSummary("No saved address", null);
-      refreshDeliveryAddressBadge(null);
+
+      if (typeof refreshDeliveryAddressBadge === "function") {
+        refreshDeliveryAddressBadge(null);
+      }
+
       setPageStatus(
         "Could not load orders to get a delivery address.",
         "warning",
@@ -670,7 +747,11 @@ wireFavoriteShopHandoff();
     const orders = Array.isArray(res.data) ? res.data : [];
     if (!orders.length) {
       renderAddressSummary("No orders yet", null);
-      refreshDeliveryAddressBadge(null);
+
+      if (typeof refreshDeliveryAddressBadge === "function") {
+        refreshDeliveryAddressBadge(null);
+      }
+
       setPageStatus(
         "No orders found yet — you can still save an address locally.",
         "muted",
@@ -693,20 +774,23 @@ wireFavoriteShopHandoff();
       country: newest?.country || "US",
     };
 
-    if (
-      inferred.address_line1 &&
-      inferred.city &&
-      inferred.state &&
-      inferred.postal_code
-    ) {
+    if (hasUsableSavedAddress(inferred)) {
       renderAddressSummary("Newest order", inferred);
-      refreshDeliveryAddressBadge(inferred);
+
+      if (typeof refreshDeliveryAddressBadge === "function") {
+        refreshDeliveryAddressBadge(inferred);
+      }
+
       setPageStatus("", "success");
       return inferred;
     }
 
     renderAddressSummary("No usable address found", null);
-    refreshDeliveryAddressBadge(null);
+
+    if (typeof refreshDeliveryAddressBadge === "function") {
+      refreshDeliveryAddressBadge(null);
+    }
+
     setPageStatus(
       "Orders loaded, but no usable address fields were found.",
       "warning",
@@ -715,8 +799,10 @@ wireFavoriteShopHandoff();
   }
 
   function prefillAddressModal(addressObj) {
-    // Prefill modal inputs (local first, then inferred)
-    const a = addressObj || getLocalJson(LOCAL_ADDRESS_KEY, null) || null;
+    const authAddr = getAddressFromAuth(CC.auth.getAuth?.() || null);
+    const localAddr = getLocalJson(LOCAL_ADDRESS_KEY, null);
+
+    const a = addressObj || authAddr || localAddr || null;
 
     if (addrLine1El)
       addrLine1El.value = a?.address_line1 || a?.street_address || "";
@@ -1258,7 +1344,7 @@ wireFavoriteShopHandoff();
     const inferred = await loadDefaultAddress();
 
     // Prefill modal with best-known
-    prefillAddressModal(getLocalJson(LOCAL_ADDRESS_KEY, null) || inferred);
+    prefillAddressModal(inferred);
 
     // Load favorites + provider info
     await Promise.allSettled([loadFavorites(), loadProviderInfo(username)]);
