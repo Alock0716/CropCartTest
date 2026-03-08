@@ -176,14 +176,77 @@ wireFavoriteShopHandoff();
    *   display_name: string
    * }
    */
-  async function geocodeDeliveryAddress(addressObj) {
-    const query = buildAddressString(addressObj);
-    if (!query) {
-      throw new Error("Address is missing required fields.");
-    }
+  function normalizeZip(zip) {
+    return String(zip || "")
+      .trim()
+      .replace(/[^\d-]/g, "")
+      .slice(0, 10);
+  }
 
+  function normalizeState(state) {
+    return String(state || "").trim().toUpperCase();
+  }
+
+  function normalizeCity(city) {
+    return String(city || "").trim();
+  }
+
+  function normalizeStreet(street) {
+    return String(street || "").trim();
+  }
+
+  function buildAddressString(addressObj) {
+    if (!addressObj) return "";
+
+    return [
+      String(addressObj.address_line1 || addressObj.street_address || "").trim(),
+      String(addressObj.city || "").trim(),
+      String(addressObj.state || "").trim(),
+      String(addressObj.postal_code || addressObj.zip || "").trim(),
+      String(addressObj.country || "US").trim(),
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function buildLookupCandidates(addressObj) {
+    const street = normalizeStreet(
+      addressObj?.address_line1 || addressObj?.street_address || ""
+    );
+    const city = normalizeCity(addressObj?.city || "");
+    const state = normalizeState(addressObj?.state || "");
+    const zip = normalizeZip(addressObj?.postal_code || addressObj?.zip || "");
+    const country = String(addressObj?.country || "US").trim();
+
+    const whole = [street, city, state, zip, country].filter(Boolean).join(", ");
+
+    return [
+      {
+        label: "street + zip",
+        query: [street, zip, country].filter(Boolean).join(", "),
+      },
+      {
+        label: "whole address",
+        query: whole,
+      },
+      {
+        label: "street + zip + state",
+        query: [street, zip, state, country].filter(Boolean).join(", "),
+      },
+      {
+        label: "street + zip + city",
+        query: [street, zip, city, country].filter(Boolean).join(", "),
+      },
+      {
+        label: "city + zip + state",
+        query: [city, zip, state, country].filter(Boolean).join(", "),
+      },
+    ].filter((c) => c.query && c.query.replace(/[, ]/g, "").length >= 5);
+  }
+
+  async function runGeocodeQuery(query) {
     const url =
-      `https://nominatim.openstreetmap.org/search?` +
+      "https://nominatim.openstreetmap.org/search?" +
       new URLSearchParams({
         q: query,
         format: "jsonv2",
@@ -204,16 +267,13 @@ wireFavoriteShopHandoff();
 
     const data = await res.json();
     const hit = Array.isArray(data) ? data[0] : null;
-
-    if (!hit) {
-      throw new Error("Could not find coordinates for that address.");
-    }
+    if (!hit) return null;
 
     const lat = Number(hit.lat);
     const lng = Number(hit.lon);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      throw new Error("Geocoder returned invalid coordinates.");
+      return null;
     }
 
     return {
@@ -221,6 +281,54 @@ wireFavoriteShopHandoff();
       lng,
       display_name: String(hit.display_name || query).trim(),
     };
+  }
+
+  async function geocodeDeliveryAddress(addressObj) {
+    if (
+      Number.isFinite(Number(addressObj?.lat)) &&
+      Number.isFinite(Number(addressObj?.lng))
+    ) {
+      return {
+        lat: Number(addressObj.lat),
+        lng: Number(addressObj.lng),
+        display_name:
+          String(addressObj.preferred_delivery_address || "").trim() ||
+          buildAddressString(addressObj),
+      };
+    }
+
+    const candidates = buildLookupCandidates(addressObj);
+
+    if (!candidates.length) {
+      throw new Error("Address is missing required fields.");
+    }
+
+    let lastHttpError = null;
+
+    for (const candidate of candidates) {
+      try {
+        setInlineStatus(
+          addressModalStatusEl,
+          `Checking address lookup: ${candidate.label}…`,
+          "muted"
+        );
+
+        const result = await runGeocodeQuery(candidate.query);
+        if (result) {
+          return result;
+        }
+      } catch (err) {
+        lastHttpError = err;
+      }
+    }
+
+    if (lastHttpError) {
+      throw lastHttpError;
+    }
+
+    throw new Error(
+      "Could not find coordinates for that address after trying multiple address formats."
+    );
   }
 
   /**
