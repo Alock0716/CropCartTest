@@ -159,7 +159,7 @@
     const logo = String(rawFarm.logo_url || "").trim();
 
     if (!name) missing.push("name");
-    if (!location) missing.push("farm_location");
+    
     if (!logo) missing.push("logo_url");
 
     let lat = Number(rawFarm.lat);
@@ -180,6 +180,7 @@
     } else {
       if (!hasLat) missing.push("lat");
       if (!hasLng) missing.push("lng");
+      if (!location) missing.push("farm_location");
     }
 
     if (missing.length) {
