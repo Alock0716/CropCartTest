@@ -42,26 +42,6 @@
     });
   }
 
-  async function apiGetCustomer() {
-    return CC.apiRequest(CC.delivery.getDeliveryConfig().CUSTOMER_PATH, {
-      method: "GET",
-    });
-  }
-
-  function extractCustomerRecord(payload) {
-    if (!payload || typeof payload !== "object") return null;
-
-    // Keep this strict enough for now, but still usable with common REST shapes.
-    if (payload.preferred_delivery_address !== undefined) return payload;
-    if (payload.data && payload.data.preferred_delivery_address !== undefined) {
-      return payload.data;
-    }
-    if (payload.results && payload.results[0]) return payload.results[0];
-    if (Array.isArray(payload) && payload[0]) return payload[0];
-
-    return null;
-  }
-
   function initMap(hq, customer, farms) {
     const centerLat = customer?.lat ?? hq.lat;
     const centerLng = customer?.lng ?? hq.lng;
@@ -213,12 +193,9 @@
       return;
     }
 
-    setPageStatus("Loading farms and customer location…", "muted");
+        setPageStatus("Loading farms and customer location…", "muted");
 
-    const [farmsRes, customerRes] = await Promise.all([
-      apiGetFarms(),
-      apiGetCustomer(),
-    ]);
+    const farmsRes = await apiGetFarms();
 
     if (!farmsRes.ok) {
       console.error(
@@ -227,19 +204,12 @@
       );
     }
 
-    if (!customerRes.ok) {
-      console.error(
-        "delivery-radius: failed to load customer data. Expected customer route to return preferred_delivery_address, lat, and lng.",
-        customerRes,
-      );
-    }
-
     const rawFarms = Array.isArray(farmsRes.data) ? farmsRes.data : [];
     const validatedFarms = rawFarms
       .map((farm, index) => delivery.validateFarm(farm, index))
       .filter(Boolean);
 
-    const customerRecord = extractCustomerRecord(customerRes.data);
+    const customerRecord = delivery.getCustomerFromAuth();
     const customerCheck = delivery.validateCustomer(customerRecord);
 
     if (!customerCheck.ok) {

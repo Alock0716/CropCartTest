@@ -19,7 +19,7 @@
       HQ_LONG: Number(cfg.HQ_LONG),
       HQ_ICON_URL: "./Images/CClogo1.png",
       FARMS_PATH: "/farms/",
-      CUSTOMER_PATH: "auth/profile/delivery-address/", // update this once the finalized API route is ready
+      CUSTOMER_PATH: "auth/profile/", // update this once the finalized API route is ready
 
       ENABLE_DELIVERY_TEST_DEFAULTS: Boolean(cfg.ENABLE_DELIVERY_TEST_DEFAULTS),
       TEST_FARM_LAT: Number(cfg.TEST_FARM_LAT),
@@ -94,14 +94,13 @@
   }
 
   function validateCustomer(rawCustomer) {
-    const config = getDeliveryConfig();
     const missing = [];
 
     if (!rawCustomer || typeof rawCustomer !== "object") {
       return {
         ok: false,
         missing: [
-          "customer object",
+          "user object",
           "preferred_delivery_address",
           "lat",
           "lng",
@@ -110,40 +109,25 @@
       };
     }
 
-    const preferredDeliveryAddress = String(
-      rawCustomer.preferred_delivery_address || "",
-    ).trim();
-
-    const hasLat = isFiniteCoord(rawCustomer.lat);
-    const hasLng = isFiniteCoord(rawCustomer.lng);
-
-    let lat = Number(rawCustomer.lat);
-    let lng = Number(rawCustomer.lng);
-
-    if (!preferredDeliveryAddress) {
+    if (!String(rawCustomer.preferred_delivery_address || "").trim()) {
       missing.push("preferred_delivery_address");
     }
-
-    if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
-      lat = config.TEST_CUSTOMER_LAT;
-      lng = config.TEST_CUSTOMER_LONG;
-
-      console.warn(
-        'delivery-radius: customer lat/lng missing. Using test default coordinates from config. Expected customer.lat and customer.lng.',
-        rawCustomer,
-      );
-    } else {
-      if (!hasLat) missing.push("lat");
-      if (!hasLng) missing.push("lng");
-    }
+    if (!isFiniteCoord(rawCustomer.lat)) missing.push("lat");
+    if (!isFiniteCoord(rawCustomer.lng)) missing.push("lng");
 
     return {
       ok: missing.length === 0,
       missing,
       customer: {
-        preferred_delivery_address: preferredDeliveryAddress,
-        lat,
-        lng,
+        id: rawCustomer.id,
+        username: String(rawCustomer.username || "").trim(),
+        email: String(rawCustomer.email || "").trim(),
+        role: String(rawCustomer.role || "").trim(),
+        preferred_delivery_address: String(
+          rawCustomer.preferred_delivery_address || "",
+        ).trim(),
+        lat: Number(rawCustomer.lat),
+        lng: Number(rawCustomer.lng),
       },
     };
   }
@@ -211,6 +195,51 @@
     };
   }
 
+    /**
+   * Read the currently logged-in user's delivery data from auth.
+   *
+   * Expected future auth shape:
+   * {
+   *   access,
+   *   refresh,
+   *   user: {
+   *     id,
+   *     username,
+   *     email,
+   *     role,
+   *     preferred_delivery_address,
+   *     lat,
+   *     lng
+   *   }
+   * }
+   *
+   * @returns {object|null}
+   */
+  function getCustomerFromAuth() {
+    const auth = CC.auth?.getAuth?.();
+    const user = auth?.user;
+
+    if (!user || typeof user !== "object") {
+      console.error(
+        "delivery-radius: auth user data missing. Expected CC.auth.getAuth().user to exist.",
+        auth,
+      );
+      return null;
+    }
+
+    return {
+      id: user.id,
+      username: String(user.username || "").trim(),
+      email: String(user.email || "").trim(),
+      role: String(user.role || "").trim(),
+      preferred_delivery_address: String(
+        user.preferred_delivery_address || "",
+      ).trim(),
+      lat: Number(user.lat),
+      lng: Number(user.lng),
+    };
+  }
+
   function farmPopupHtml(farm) {
     return `
       <div class="cc-map-popup">
@@ -230,5 +259,6 @@
     milesToMeters,
     buildImageIcon,
     farmPopupHtml,
+    getCustomerFromAuth,
   };
 })();
