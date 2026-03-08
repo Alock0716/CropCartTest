@@ -115,8 +115,6 @@
     const hasLat = isFiniteCoord(lat);
     const hasLng = isFiniteCoord(lng);
 
-    
-
     if ((!hasLat || !hasLng || !preferredDeliveryAddress) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
       lat = config.TEST_CUSTOMER_LAT;
       lng = config.TEST_CUSTOMER_LONG;
