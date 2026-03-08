@@ -13,35 +13,30 @@
 
 window.__CROPCART_CONFIG__ = {
   // --------------------------------------------------------------------------
-  // API / Server URLs
+  // API / Server URL
   // --------------------------------------------------------------------------
-
-  // Live URL:
   API_URL: "https://d1nnhq1iqs57tb.cloudfront.net/api",
 
   // --------------------------------------------------------------------------
-  // Stripe Client
+  // Stripe Client Variables
   // --------------------------------------------------------------------------
 
   STRIPE_PUBLISHABLE_KEY:
     "pk_test_51Sk6SlCV7Fz3POGDgrPnonTC2bjA0qby5WUYR5LdzBwqGhKq9ugdxbl4uxwqNVixB9vJQTDj1Eb2A2V4K9PSDHUx00LHvclWTn",
 
   // --------------------------------------------------------------------------
-  // Test URL/PKey For Stripe testing (kept as comments from source)
-  // --------------------------------------------------------------------------
-  // API_URL: "http://localhost:4242/api",
-  // STRIPE_PUBLISHABLE_KEY: 'pk_test_51RVcKk2el6TPjGkD0aHuRepUS2rLzkDSs4QRvyQ4esIXr666R69y8Mte3l81vdaXoSe2vznV1w2Ljeegq6tzrtjm00BKBnc3Q4',
-
-  // --------------------------------------------------------------------------
-  // App behavior toggles
+  // Delivery range variables
   // --------------------------------------------------------------------------
 
   DEFAULT_DELIVERY_RADIUS_MILES: 15,
   ENABLE_FARMER_PORTAL: true,
+  HQ_ADDRESS: "",
+  HQ_LONG: 0,
+  HQ_LAT: 0,
 };
 
 // ---------------------------------------------------------------------------
-// Backwards-compatible globals (legacy scripts depend on these)
+// Backwards-compatible globals (legacy scripts depend on these) (TODO: Remove Later)
 // ---------------------------------------------------------------------------
 
 // Example: "http://3.142.227.162/api"
