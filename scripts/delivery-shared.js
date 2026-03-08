@@ -19,7 +19,7 @@
       HQ_LONG: Number(cfg.HQ_LONG),
       HQ_ICON_URL: "./Images/CClogo1.png",
       FARMS_PATH: "/farms/",
-      CUSTOMER_PATH: "/auth/coordinates", // update this once the finalized API route is ready
+      CUSTOMER_PATH: "auth/profile/delivery-address/", // update this once the finalized API route is ready
     };
   }
 
