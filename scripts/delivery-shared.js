@@ -26,6 +26,7 @@
       TEST_FARM_LONG: Number(cfg.TEST_FARM_LONG),
       TEST_CUSTOMER_LAT: Number(cfg.TEST_CUSTOMER_LAT),
       TEST_CUSTOMER_LONG: Number(cfg.TEST_CUSTOMER_LONG),
+      TEST_DELIVERY_ADDRESS: String(cfg.TEST_DELIVERY_ADDRESS),
     };
   }
 
@@ -121,6 +122,7 @@
     if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
       lat = config.TEST_CUSTOMER_LAT;
       lng = config.TEST_CUSTOMER_LONG;
+      preferred_delivery_address = config.TEST_DELIVERY_ADDRESS;
 
       console.warn(
         "delivery-radius: customer lat/lng missing. Using TEST_CUSTOMER coordinates from config.",

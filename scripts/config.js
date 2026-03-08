@@ -39,6 +39,8 @@ window.__CROPCART_CONFIG__ = {
   // --------------------------------------------------------------------------
   ENABLE_DELIVERY_TEST_DEFAULTS: true,
 
+  TEST_DELIVERY_ADDRESS: "1151 Melschiemer St. SW, East Sparta, Ohio, USA",
+
   TEST_FARM_LAT: 40.9001,
   TEST_FARM_LONG: -81.1057,
 
