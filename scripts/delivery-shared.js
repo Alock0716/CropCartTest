@@ -105,7 +105,7 @@
       return { ok: false, missing: ["user object"], customer: null };
     }
 
-    let preferredDeliveryAddress = String(rawCustomer.preferred_delivery_address).trim();
+    let preferredDeliveryAddress = String(rawCustomer.preferred_delivery_address || "").trim();
     let lat = Number(rawCustomer.lat);
     let lng = Number(rawCustomer.lng);
 
@@ -155,7 +155,7 @@
     }
 
     const name = String(rawFarm.name || "").trim();
-    const location = String(rawFarm.farm_location).trim();
+    let location = String(rawFarm.farm_location || "").trim();
     const logo = String(rawFarm.logo_url || "").trim();
 
     if (!name) missing.push("name");
