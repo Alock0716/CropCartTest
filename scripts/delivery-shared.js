@@ -115,6 +115,8 @@
     const hasLat = isFiniteCoord(lat);
     const hasLng = isFiniteCoord(lng);
 
+    
+
     if ((!hasLat || !hasLng || !preferredDeliveryAddress) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
       lat = config.TEST_CUSTOMER_LAT;
       lng = config.TEST_CUSTOMER_LONG;
@@ -162,6 +164,7 @@
     const logo = String(rawFarm.logo_url || "").trim();
 
     if (!name) missing.push("name");
+    if (!location) missing.push("farm_location");
     if (!logo) missing.push("logo_url");
 
     let lat = Number(rawFarm.lat);
@@ -170,7 +173,7 @@
     const hasLat = isFiniteCoord(lat);
     const hasLng = isFiniteCoord(lng);
 
-    if ((!hasLat || !hasLng || !location) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
+    if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
       lat = config.TEST_FARM_LAT;
       lng = config.TEST_FARM_LONG;
       location = config.TEST_DELIVERY_ADDRESS;
@@ -182,7 +185,6 @@
     } else {
       if (!hasLat) missing.push("lat");
       if (!hasLng) missing.push("lng");
-      if (!location) missing.push("farm_location");
     }
 
     if (missing.length) {
