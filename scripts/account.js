@@ -57,6 +57,8 @@
   const addrCityEl = document.getElementById("addrCity");
   const addrStateEl = document.getElementById("addrState");
   const addrZipEl = document.getElementById("addrZip");
+  const deliveryAddressBadgeEl = document.getElementById("deliveryAddressBadge");
+  const deliveryAddressBadgeNoteEl = document.getElementById("deliveryAddressBadgeNote");
 
   // Favorites
   const refreshFavoritesBtn = document.getElementById("refreshFavoritesBtn");
@@ -190,6 +192,153 @@ wireFavoriteShopHandoff();
     `;
   }
 
+    /**
+   * Set the delivery-range badge shown on the account address card.
+   *
+   * @param {string} text - Badge label shown to the user
+   * @param {"success"|"danger"|"warning"|"muted"} kind - Visual badge state
+   * @param {string} [note=""] - Optional helper text under the badge
+   */
+  function setDeliveryBadge(text, kind = "muted", note = "") {
+    if (deliveryAddressBadgeEl) {
+      const cls =
+        kind === "success"
+          ? "badge text-bg-success"
+          : kind === "danger"
+            ? "badge text-bg-danger"
+            : kind === "warning"
+              ? "badge text-bg-warning"
+              : "badge text-bg-light border";
+
+      deliveryAddressBadgeEl.className = cls;
+      deliveryAddressBadgeEl.textContent = text || "Delivery status unavailable";
+    }
+
+    if (deliveryAddressBadgeNoteEl) {
+      deliveryAddressBadgeNoteEl.textContent = note || "";
+    }
+  }
+
+  /**
+   * Build the delivery helper's expected customer object using:
+   * 1) the best-known address from account page logic
+   * 2) auth user lat/lng if available
+   *
+   * This keeps the account page aligned with the delivery map behavior.
+   *
+   * @param {object|null} addressObj
+   * @returns {object|null}
+   */
+  function buildDeliveryCustomerRecord(addressObj) {
+    const auth = CC.auth?.getAuth?.();
+    const user = auth?.user || null;
+
+    if (!addressObj && !user) return null;
+
+    const formattedAddress = formatAddressLine(addressObj);
+
+    return {
+      id: user?.id ?? null,
+      username: String(user?.username || "").trim(),
+      email: String(user?.email || "").trim(),
+      role: String(user?.role || "").trim(),
+
+      // Prefer the account page's currently resolved address text,
+      // then fall back to auth if the backend eventually adds it there.
+      preferred_delivery_address:
+        formattedAddress && formattedAddress !== "—"
+          ? formattedAddress
+          : String(user?.preferred_delivery_address || "").trim(),
+
+      // Future-ready: when API/auth starts returning coordinates,
+      // the badge will begin using them automatically.
+      lat: Number(user?.lat),
+      lng: Number(user?.lng),
+    };
+  }
+
+  /**
+   * Refresh the account-page delivery badge using the shared delivery helpers.
+   *
+   * Behavior:
+   * - Uses HQ config from config.js
+   * - Uses the same range math as the map page
+   * - Uses delivery test defaults when the API/auth customer coords
+   *   are not available yet and ENABLE_DELIVERY_TEST_DEFAULTS is true
+   *
+   * @param {object|null} addressObj
+   */
+  function refreshDeliveryAddressBadge(addressObj) {
+    const delivery = CC?.delivery;
+
+    if (!delivery) {
+      setDeliveryBadge(
+        "Delivery helper missing",
+        "warning",
+        "delivery-shared.js is not loaded on this page.",
+      );
+      return;
+    }
+
+    const config = delivery.getDeliveryConfig();
+    const hqCheck = delivery.validateHq(config);
+
+    if (!hqCheck.ok) {
+      setDeliveryBadge(
+        "Delivery status unavailable",
+        "warning",
+        `Missing HQ config: ${hqCheck.missing.join(", ")}`,
+      );
+      return;
+    }
+
+    // No usable address yet -> neutral badge
+    if (!addressObj) {
+      setDeliveryBadge(
+        "No address saved",
+        "muted",
+        "Add a delivery address to check whether you are in range.",
+      );
+      return;
+    }
+
+    const customerRecord = buildDeliveryCustomerRecord(addressObj);
+    const customerCheck = delivery.validateCustomer(customerRecord);
+
+    if (!customerCheck.ok) {
+      setDeliveryBadge(
+        "Delivery status unavailable",
+        "warning",
+        `Missing customer data: ${customerCheck.missing.join(", ")}`,
+      );
+      return;
+    }
+
+    const distanceFromHq = delivery.milesBetween(
+      hqCheck.hq.lat,
+      hqCheck.hq.lng,
+      customerCheck.customer.lat,
+      customerCheck.customer.lng,
+    );
+
+    const isInRange = distanceFromHq <= hqCheck.hq.deliveryRange;
+
+    if (isInRange) {
+      setDeliveryBadge(
+        "In delivery range",
+        "success",
+        `Your address is ${distanceFromHq.toFixed(2)} miles from HQ.`,
+      );
+      return;
+    }
+
+    setDeliveryBadge(
+      "Out of delivery range",
+      "danger",
+      `Your address is ${distanceFromHq.toFixed(2)} miles from HQ.`,
+    );
+  }
+
   // ===========================================================================
   // API calls
   // ===========================================================================
@@ -320,6 +469,7 @@ wireFavoriteShopHandoff();
       localAddr?.postal_code
     ) {
       renderAddressSummary("Saved on this device", localAddr);
+      refreshDeliveryAddressBadge(localAddr);
       return localAddr;
     }
 
@@ -335,6 +485,7 @@ wireFavoriteShopHandoff();
 
     if (!res.ok) {
       renderAddressSummary("No saved address", null);
+      refreshDeliveryAddressBadge(null);
       setPageStatus(
         "Could not load orders to get a delivery address.",
         "warning",
@@ -345,6 +496,7 @@ wireFavoriteShopHandoff();
     const orders = Array.isArray(res.data) ? res.data : [];
     if (!orders.length) {
       renderAddressSummary("No orders yet", null);
+      refreshDeliveryAddressBadge(null);
       setPageStatus(
         "No orders found yet — you can still save an address locally.",
         "muted",
@@ -374,11 +526,13 @@ wireFavoriteShopHandoff();
       inferred.postal_code
     ) {
       renderAddressSummary("Newest order", inferred);
+      refreshDeliveryAddressBadge(inferred);
       setPageStatus("", "success");
       return inferred;
     }
 
     renderAddressSummary("No usable address found", null);
+    refreshDeliveryAddressBadge(null);
     setPageStatus(
       "Orders loaded, but no usable address fields were found.",
       "warning",
@@ -728,6 +882,7 @@ wireFavoriteShopHandoff();
 
       setLocalJson(LOCAL_ADDRESS_KEY, payload);
       renderAddressSummary("Saved on this device", payload);
+      refreshDeliveryAddressBadge(payload);
       setPageStatus("", "success");
       setInlineStatus(addressModalStatusEl, "Saved!", "success");
 
