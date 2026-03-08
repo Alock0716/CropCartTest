@@ -30,9 +30,11 @@ window.__CROPCART_CONFIG__ = {
 
   DEFAULT_DELIVERY_RADIUS_MILES: 15,
   ENABLE_FARMER_PORTAL: true,
-  HQ_ADDRESS: "",
-  HQ_LONG: 0,
-  HQ_LAT: 0,
+
+  //using UMU address rn change to be real once i have the real address info
+  HQ_ADDRESS: "1972 Clark Ave., Alliance, OH 44601",
+  HQ_LONG: 40.902174,
+  HQ_LAT: -81.108759,
 };
 
 // ---------------------------------------------------------------------------
