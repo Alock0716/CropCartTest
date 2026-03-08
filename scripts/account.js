@@ -152,6 +152,180 @@ wireFavoriteShopHandoff();
     localStorage.setItem(key, JSON.stringify(value));
   }
 
+    function buildAddressString(addressObj) {
+    if (!addressObj) return "";
+
+    return [
+      String(addressObj.address_line1 || "").trim(),
+      String(addressObj.city || "").trim(),
+      String(addressObj.state || "").trim(),
+      String(addressObj.postal_code || "").trim(),
+      String(addressObj.country || "US").trim(),
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  /**
+   * Geocode a delivery address into lat/lng using Nominatim.
+   *
+   * Returns:
+   * {
+   *   lat: number,
+   *   lng: number,
+   *   display_name: string
+   * }
+   */
+  async function geocodeDeliveryAddress(addressObj) {
+    const query = buildAddressString(addressObj);
+    if (!query) {
+      throw new Error("Address is missing required fields.");
+    }
+
+    const url =
+      `https://nominatim.openstreetmap.org/search?` +
+      new URLSearchParams({
+        q: query,
+        format: "jsonv2",
+        limit: "1",
+        addressdetails: "1",
+      }).toString();
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Geocoding failed (HTTP ${res.status})`);
+    }
+
+    const data = await res.json();
+    const hit = Array.isArray(data) ? data[0] : null;
+
+    if (!hit) {
+      throw new Error("Could not find coordinates for that address.");
+    }
+
+    const lat = Number(hit.lat);
+    const lng = Number(hit.lon);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error("Geocoder returned invalid coordinates.");
+    }
+
+    return {
+      lat,
+      lng,
+      display_name: String(hit.display_name || query).trim(),
+    };
+  }
+
+  /**
+   * Push the user's saved delivery address + coordinates to the API.
+   *
+   * Uses the same best-guess multi-endpoint pattern already used on this page
+   * for profile updates.
+   */
+  async function apiUpdateDeliveryAddress(addressPayload) {
+    const payloadSnake = {
+      preferred_delivery_address: addressPayload.preferred_delivery_address,
+      address_line1: addressPayload.address_line1,
+      city: addressPayload.city,
+      state: addressPayload.state,
+      postal_code: addressPayload.postal_code,
+      country: addressPayload.country,
+      lat: addressPayload.lat,
+      lng: addressPayload.lng,
+    };
+
+    const payloadCamel = {
+      preferredDeliveryAddress: addressPayload.preferred_delivery_address,
+      addressLine1: addressPayload.address_line1,
+      city: addressPayload.city,
+      state: addressPayload.state,
+      postalCode: addressPayload.postal_code,
+      country: addressPayload.country,
+      lat: addressPayload.lat,
+      lng: addressPayload.lng,
+    };
+
+    const candidates = [
+      { path: "/auth/profile/", method: "PATCH", json: payloadSnake },
+      { path: "/auth/profile/", method: "PATCH", json: payloadCamel },
+
+      { path: "/users/me/", method: "PATCH", json: payloadSnake },
+      { path: "/users/me/", method: "PATCH", json: payloadCamel },
+
+      { path: "/account/profile/", method: "PATCH", json: payloadSnake },
+      { path: "/account/profile/", method: "PATCH", json: payloadCamel },
+    ];
+
+    let lastRes = null;
+
+    for (const c of candidates) {
+      const res = await CC.apiRequest(c.path, {
+        method: c.method,
+        json: c.json,
+      });
+
+      lastRes = res;
+
+      if (res.status === 401) return res;
+      if (res.status === 404) continue;
+
+      if (res.status === 405) {
+        const putRes = await CC.apiRequest(c.path, {
+          method: "PUT",
+          json: c.json,
+        });
+
+        lastRes = putRes;
+
+        if (putRes.status === 401) return putRes;
+        if (putRes.status === 404) continue;
+        if (putRes.ok) return putRes;
+
+        continue;
+      }
+
+      if (res.ok) return res;
+    }
+
+    return lastRes || { ok: false, status: 0, data: null, raw: "No response" };
+  }
+
+  function syncAddressIntoAuthCache(addressPayload) {
+    try {
+      const auth = CC.auth?.getAuth?.();
+      if (!auth || typeof auth !== "object") return;
+
+      const nextAuth = { ...auth };
+
+      if (nextAuth.user && typeof nextAuth.user === "object") {
+        nextAuth.user = {
+          ...nextAuth.user,
+          preferred_delivery_address: addressPayload.preferred_delivery_address,
+          lat: addressPayload.lat,
+          lng: addressPayload.lng,
+        };
+      } else {
+        nextAuth.preferred_delivery_address =
+          addressPayload.preferred_delivery_address;
+        nextAuth.lat = addressPayload.lat;
+        nextAuth.lng = addressPayload.lng;
+      }
+
+      if (typeof CC.auth.setAuth === "function") {
+        CC.auth.setAuth(nextAuth);
+      }
+    } catch {
+      // best effort only
+    }
+  }
+
   function pickUserFromAuth(auth) {
     // Your auth payload can vary — this tries common shapes without crashing.
     const u =
@@ -855,10 +1029,10 @@ wireFavoriteShopHandoff();
         prefillAddressModal(localAddr);
       });
 
-    addressForm?.addEventListener("submit", (e) => {
+        addressForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const payload = {
+      const basePayload = {
         address_line1: String(addrLine1El?.value || "").trim(),
         city: String(addrCityEl?.value || "").trim(),
         state: String(addrStateEl?.value || "").trim(),
@@ -867,10 +1041,10 @@ wireFavoriteShopHandoff();
       };
 
       if (
-        !payload.address_line1 ||
-        !payload.city ||
-        !payload.state ||
-        !payload.postal_code
+        !basePayload.address_line1 ||
+        !basePayload.city ||
+        !basePayload.state ||
+        !basePayload.postal_code
       ) {
         setInlineStatus(
           addressModalStatusEl,
@@ -880,19 +1054,79 @@ wireFavoriteShopHandoff();
         return;
       }
 
-      setLocalJson(LOCAL_ADDRESS_KEY, payload);
-      renderAddressSummary("Saved on this device", payload);
-      refreshDeliveryAddressBadge(payload);
-      setPageStatus("", "success");
-      setInlineStatus(addressModalStatusEl, "Saved!", "success");
+      const submitBtn = addressForm.querySelector('button[type="submit"]');
+      submitBtn && (submitBtn.disabled = true);
 
-      // Close modal
-      const modalEl = document.getElementById("addressModal");
-      if (modalEl && window.bootstrap?.Modal) {
-        const instance =
-          window.bootstrap.Modal.getInstance(modalEl) ||
-          new window.bootstrap.Modal(modalEl);
-        instance.hide();
+      try {
+        setInlineStatus(
+          addressModalStatusEl,
+          "Converting address to coordinates…",
+          "muted",
+        );
+
+        const geo = await geocodeDeliveryAddress(basePayload);
+
+        const fullPayload = {
+          ...basePayload,
+          preferred_delivery_address: geo.display_name || buildAddressString(basePayload),
+          lat: geo.lat,
+          lng: geo.lng,
+        };
+
+        setInlineStatus(
+          addressModalStatusEl,
+          "Saving address to your account…",
+          "muted",
+        );
+
+        const res = await apiUpdateDeliveryAddress(fullPayload);
+
+        if (res.status === 401) {
+          CC.auth.clearAuth();
+          window.location.href = "login.html";
+          return;
+        }
+
+        // Keep local device cache regardless so checkout still has the address.
+        setLocalJson(LOCAL_ADDRESS_KEY, fullPayload);
+        renderAddressSummary("Saved on this device", fullPayload);
+        syncAddressIntoAuthCache(fullPayload);
+
+        if (typeof refreshDeliveryAddressBadge === "function") {
+          refreshDeliveryAddressBadge(fullPayload);
+        }
+
+        if (!res.ok) {
+          setPageStatus(
+            "Address saved locally and geocoded, but DB sync is not supported by the API route yet.",
+            "warning",
+          );
+          setInlineStatus(
+            addressModalStatusEl,
+            "Saved locally. Geocoding worked, but the API did not accept the profile update.",
+            "warning",
+          );
+          return;
+        }
+
+        setPageStatus("", "success");
+        setInlineStatus(addressModalStatusEl, "Address saved.", "success");
+
+        const modalEl = document.getElementById("addressModal");
+        if (modalEl && window.bootstrap?.Modal) {
+          const instance =
+            window.bootstrap.Modal.getInstance(modalEl) ||
+            new window.bootstrap.Modal(modalEl);
+          instance.hide();
+        }
+      } catch (err) {
+        setInlineStatus(
+          addressModalStatusEl,
+          err?.message || String(err),
+          "danger",
+        );
+      } finally {
+        submitBtn && (submitBtn.disabled = false);
       }
     });
 
