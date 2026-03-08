@@ -29,6 +29,13 @@
 
   const clearBtn = document.getElementById("clearCartBtn");
   const goCheckoutBtn = document.getElementById("goCheckoutBtn");
+  const cartDeliveryWarningEl = document.getElementById("cartDeliveryWarning");
+
+  //Global Helper Variables
+  const delivery = CC?.delivery || null;
+  const LOCAL_ADDRESS_KEY = "cc_saved_address_v1";
+  const TEMP_CHECKOUT_ADDRESS_KEY = "cc_checkout_address_geo_v1";
+
 
   // ===========================================================================
   // STATE
@@ -81,6 +88,196 @@
   function formatMoney(n) {
     const v = Number(n) || 0;
     return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
+  }
+  
+  function getJson(storage, key, fallback = null) {
+    try {
+      const raw = storage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function normalizeAddressValue(v) {
+    return String(v || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toUpperCase();
+  }
+
+  function sameAddress(a, b) {
+    if (!a || !b) return false;
+
+    return (
+      normalizeAddressValue(a.address_line1 || a.street_address) ===
+        normalizeAddressValue(b.address_line1 || b.street_address) &&
+      normalizeAddressValue(a.city) === normalizeAddressValue(b.city) &&
+      normalizeAddressValue(a.state) === normalizeAddressValue(b.state) &&
+      normalizeAddressValue(a.postal_code || a.zip) ===
+        normalizeAddressValue(b.postal_code || b.zip)
+    );
+  }
+
+  function getAddressFromAuth(auth) {
+    const user =
+      auth?.user || auth?.data?.user || auth?.account || auth?.profile || null;
+
+    if (!user || typeof user !== "object") return null;
+
+    const lat = Number(user.lat);
+    const lng = Number(user.lng);
+
+    const addr = {
+      address_line1: String(
+        user.address_line1 || user.street_address || ""
+      ).trim(),
+      city: String(user.city || "").trim(),
+      state: String(user.state || "").trim(),
+      postal_code: String(user.postal_code || user.zip || "").trim(),
+      country: String(user.country || "US").trim(),
+      preferred_delivery_address: String(
+        user.preferred_delivery_address || user.preferredDeliveryAddress || ""
+      ).trim(),
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+    };
+
+    const hasAddressText =
+      addr.address_line1 && addr.city && addr.state && addr.postal_code;
+    const hasPreferred = !!addr.preferred_delivery_address;
+    const hasCoords = Number.isFinite(addr.lat) && Number.isFinite(addr.lng);
+
+    return hasAddressText || hasPreferred || hasCoords ? addr : null;
+  }
+
+  function getBestCartAddress() {
+    const authAddr = getAddressFromAuth(CC.auth.getAuth?.() || null);
+    const localAddr = getJson(localStorage, LOCAL_ADDRESS_KEY, null);
+    const tempCheckoutAddr = getJson(sessionStorage, TEMP_CHECKOUT_ADDRESS_KEY, null);
+
+    if (
+      authAddr &&
+      Number.isFinite(Number(authAddr.lat)) &&
+      Number.isFinite(Number(authAddr.lng))
+    ) {
+      return { source: "account", address: authAddr };
+    }
+
+    if (
+      localAddr &&
+      Number.isFinite(Number(localAddr.lat)) &&
+      Number.isFinite(Number(localAddr.lng))
+    ) {
+      return { source: "device", address: localAddr };
+    }
+
+    if (
+      tempCheckoutAddr &&
+      Number.isFinite(Number(tempCheckoutAddr.lat)) &&
+      Number.isFinite(Number(tempCheckoutAddr.lng))
+    ) {
+      return { source: "checkout", address: tempCheckoutAddr };
+    }
+
+    if (authAddr) return { source: "account", address: authAddr };
+    if (localAddr) return { source: "device", address: localAddr };
+    if (tempCheckoutAddr) return { source: "checkout", address: tempCheckoutAddr };
+
+    return { source: null, address: null };
+  }
+
+  function setCartDeliveryWarning(text, kind = "muted") {
+    if (!cartDeliveryWarningEl) return;
+
+    cartDeliveryWarningEl.textContent = text || "";
+    cartDeliveryWarningEl.className =
+      "small mb-3 " +
+      (kind === "danger"
+        ? "text-danger"
+        : kind === "success"
+          ? "text-success"
+          : kind === "warning"
+            ? "text-warning"
+            : "text-muted");
+  }
+
+  function refreshCartDeliveryWarning() {
+    if (!cartDeliveryWarningEl) return;
+
+    const items = Array.isArray(cart?.items) ? cart.items : [];
+    if (!items.length) {
+      setCartDeliveryWarning("");
+      return;
+    }
+
+    if (!delivery) {
+      setCartDeliveryWarning(
+        "Delivery status preview is unavailable right now.",
+        "warning"
+      );
+      return;
+    }
+
+    const hqCheck = delivery.validateHq(delivery.getDeliveryConfig());
+    if (!hqCheck?.ok) {
+      setCartDeliveryWarning(
+        "Delivery status preview is unavailable because HQ settings are missing.",
+        "warning"
+      );
+      return;
+    }
+
+    const { source, address } = getBestCartAddress();
+
+    if (!address) {
+      setCartDeliveryWarning(
+        "No saved delivery address found yet. You can still continue and enter or change your address during checkout.",
+        "warning"
+      );
+      return;
+    }
+
+    const customerCheck = delivery.validateCustomer(address);
+
+    if (!customerCheck?.ok) {
+      setCartDeliveryWarning(
+        "A delivery address exists, but coordinates are not available yet. You can still continue and verify the address during checkout.",
+        "warning"
+      );
+      return;
+    }
+
+    const distanceMiles = delivery.milesBetween(
+      hqCheck.hq.lat,
+      hqCheck.hq.lng,
+      customerCheck.customer.lat,
+      customerCheck.customer.lng
+    );
+
+    const inRange = distanceMiles <= hqCheck.hq.deliveryRange;
+
+    const sourceLabel =
+      source === "account"
+        ? "saved account address"
+        : source === "device"
+          ? "saved device address"
+          : source === "checkout"
+            ? "most recent checkout address"
+            : "saved address";
+
+    if (inRange) {
+      setCartDeliveryWarning(
+        `Estimated deliverable based on your ${sourceLabel}. Current distance from HQ: ${distanceMiles.toFixed(2)} miles. You can still change the address during checkout.`,
+        "success"
+      );
+      return;
+    }
+
+    setCartDeliveryWarning(
+      `Warning: your ${sourceLabel} is currently outside the delivery radius (${distanceMiles.toFixed(2)} miles from HQ). You can still continue to checkout and change the address there.`,
+      "danger"
+    );
   }
 
   // ===========================================================================
@@ -316,6 +513,7 @@
       `;
       subtotalEl.textContent = formatMoney(0);
       totalEl.textContent = formatMoney(0);
+      refreshCartDeliveryWarning();
       CC.setStatus(statusEl, "", "muted");
       return;
     }
@@ -391,6 +589,7 @@
       });
     });
 
+    refreshCartDeliveryWarning();
     CC.setStatus(statusEl, "", "muted");
   }
 

@@ -15,6 +15,7 @@
     <!-- Shared config + helpers (must load before page scripts) -->
     <script src="./scripts/config.js"></script>
     <script src="./scripts/utils.js"></script>
+       <script src="./scripts/delivery-shared.js"></script>
 
     <!-- Shared auth + page boot -->
     <script defer src="./scripts/auth.js"></script>
@@ -139,12 +140,16 @@
                 <span id="cartTotal"></span>
               </div>
 
+              <div id="cartDeliveryWarning" class="small mb-3 text-muted"></div>
+
               <div class="mt-4 d-grid">
-                <a class="btn cc-btn btn-lg" href="checkout.html">Checkout</a>
+                <a class="btn cc-btn btn-lg" id="goCheckoutBtn" href="checkout.html">
+                  Checkout
+                </a>
               </div>
 
               <p class="small text-muted mt-3 mb-0">
-                Tax is calculated based on your delivery address during checkout.
+                Delivery range is estimated here using your saved address. You can still change the address during checkout.
               </p>
             </div>
           </div>
