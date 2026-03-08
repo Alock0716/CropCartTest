@@ -30,9 +30,9 @@ window.__CROPCART_CONFIG__ = {
   //using UMU address rn change to be real once i have the real address info
   DELIVERY_RANGE: 15,
   HQ_ADDRESS: "1972 Clark Ave., Alliance, OH 44601",
-  HQ_LONG: 40.902174,
-  HQ_LAT: -81.108759,
-
+  HQ_LAT: 40.902174,
+  HQ_LONG: -81.108759,
+  
   // --------------------------------------------------------------------------
   // Delivery test defaults
   // Temporary testing helpers for missing farm/customer coordinates
@@ -41,8 +41,8 @@ window.__CROPCART_CONFIG__ = {
 
   TEST_DELIVERY_ADDRESS: "1151 Melschiemer St. SW, East Sparta, Ohio, USA",
 
-  TEST_FARM_LAT: 40.9001,
-  TEST_FARM_LONG: -81.1057,
+  TEST_FARM_LAT: 40.9000,
+  TEST_FARM_LONG: -81.1000,
 
   TEST_CUSTOMER_LAT: 40.7989,
   TEST_CUSTOMER_LONG: -81.3784,
