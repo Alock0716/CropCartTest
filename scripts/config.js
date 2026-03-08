@@ -24,14 +24,11 @@ window.__CROPCART_CONFIG__ = {
   STRIPE_PUBLISHABLE_KEY:
     "pk_test_51Sk6SlCV7Fz3POGDgrPnonTC2bjA0qby5WUYR5LdzBwqGhKq9ugdxbl4uxwqNVixB9vJQTDj1Eb2A2V4K9PSDHUx00LHvclWTn",
 
-  // --------------------------------------------------------------------------
-  // Delivery range variables
-  // --------------------------------------------------------------------------
 
-  DELIVERY_RANGE: 15,
   ENABLE_FARMER_PORTAL: true,
 
   //using UMU address rn change to be real once i have the real address info
+  DELIVERY_RANGE: 15,
   HQ_ADDRESS: "1972 Clark Ave., Alliance, OH 44601",
   HQ_LONG: 40.902174,
   HQ_LAT: -81.108759,
