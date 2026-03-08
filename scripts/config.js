@@ -28,7 +28,7 @@ window.__CROPCART_CONFIG__ = {
   // Delivery range variables
   // --------------------------------------------------------------------------
 
-  DEFAULT_DELIVERY_RADIUS_MILES: 15,
+  DELIVERY_RANGE: 15,
   ENABLE_FARMER_PORTAL: true,
 
   //using UMU address rn change to be real once i have the real address info
