@@ -57,7 +57,7 @@
     }).addTo(map);
 
     renderHq(hq);
-    renderCustomer(customer);
+    renderCustomer(customer, hq);
     renderFarms(farms);
 
     fitBoundsToData(hq, customer, farms);
@@ -70,6 +70,7 @@
     layers.hqMarker = L.marker([hq.lat, hq.lng], { icon: hqIcon }).bindPopup(`
       <div class="cc-map-popup">
         <div class="fw-semibold mb-1">CropCart HQ</div>
+        <div><strong>Delivery Radius:</strong> ${CC.escapeHtml(String(hq.deliveryRange))} miles</div>
         <div>${CC.escapeHtml(hq.address)}</div>
       </div>
     `);
@@ -87,8 +88,17 @@
     if (toggleHqRadiusEl?.checked) layers.hqRadius.addTo(map);
   }
 
-  function renderCustomer(customer) {
+  function renderCustomer(customer, hq) {
     if (!customer) return;
+
+    const distanceFromHq = delivery.milesBetween(
+      hq.lat,
+      hq.lng,
+      customer.lat,
+      customer.lng,
+    );
+
+    const isInRange = distanceFromHq <= hq.deliveryRange;
 
     layers.customerMarker = L.marker([customer.lat, customer.lng], {
       icon: L.divIcon({
@@ -104,8 +114,10 @@
       }),
     }).bindPopup(`
       <div class="cc-map-popup">
-        <div class="fw-semibold mb-1">Your Delivery Address</div>
+        <div class="fw-semibold mb-1">${CC.escapeHtml(customer.username || "Customer")}</div>
         <div>${CC.escapeHtml(customer.preferred_delivery_address)}</div>
+        <div><strong>In Range:</strong> ${isInRange ? "Yes" : "No"}</div>
+        <div><strong>Distance From HQ:</strong> ${distanceFromHq.toFixed(2)} miles</div>
       </div>
     `);
 
