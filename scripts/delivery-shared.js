@@ -65,7 +65,7 @@
       className: `cc-map-pin-wrap ${className}`.trim(),
       html: `
         <div class="cc-map-pin" style="width:${size}px;height:${size}px;">
-          <img src="${escape(url)}" alt="" width="${size}" height="${size}" />
+          <img src="${encodeURI(url)}" alt="" width="${size}" height="${size}" />
         </div>
       `,
       iconSize: [size, size],
