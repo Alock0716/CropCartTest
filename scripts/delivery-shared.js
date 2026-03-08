@@ -105,19 +105,14 @@
       return { ok: false, missing: ["user object"], customer: null };
     }
 
-    let preferredDeliveryAddress = String(
-      rawCustomer.preferred_delivery_address || ""
-    ).trim();
-
+    let preferredDeliveryAddress = String(rawCustomer.preferred_delivery_address).trim();
     let lat = Number(rawCustomer.lat);
     let lng = Number(rawCustomer.lng);
 
     const hasLat = isFiniteCoord(lat);
     const hasLng = isFiniteCoord(lng);
 
-    
-
-    if ((!hasLat || !hasLng || !preferredDeliveryAddress) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
+    if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
       lat = config.TEST_CUSTOMER_LAT;
       lng = config.TEST_CUSTOMER_LONG;
       preferredDeliveryAddress = config.TEST_DELIVERY_ADDRESS;
@@ -160,7 +155,7 @@
     }
 
     const name = String(rawFarm.name || "").trim();
-    const location = String(rawFarm.farm_location || "").trim();
+    const location = String(rawFarm.farm_location).trim();
     const logo = String(rawFarm.logo_url || "").trim();
 
     if (!name) missing.push("name");
