@@ -94,41 +94,53 @@
   }
 
   function validateCustomer(rawCustomer) {
+    const config = getDeliveryConfig();
     const missing = [];
 
     if (!rawCustomer || typeof rawCustomer !== "object") {
-      return {
-        ok: false,
-        missing: [
-          "user object",
-          "preferred_delivery_address",
-          "lat",
-          "lng",
-        ],
-        customer: null,
-      };
+      console.error(
+        "delivery-radius: customer object missing. Expected CC.auth.getAuth().user"
+      );
+      return { ok: false, missing: ["user object"], customer: null };
     }
 
-    if (!String(rawCustomer.preferred_delivery_address || "").trim()) {
+    const preferredDeliveryAddress = String(
+      rawCustomer.preferred_delivery_address || ""
+    ).trim();
+
+    let lat = Number(rawCustomer.lat);
+    let lng = Number(rawCustomer.lng);
+
+    const hasLat = isFiniteCoord(lat);
+    const hasLng = isFiniteCoord(lng);
+
+    if (!preferredDeliveryAddress) {
       missing.push("preferred_delivery_address");
     }
-    if (!isFiniteCoord(rawCustomer.lat)) missing.push("lat");
-    if (!isFiniteCoord(rawCustomer.lng)) missing.push("lng");
+
+    if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
+      lat = config.TEST_CUSTOMER_LAT;
+      lng = config.TEST_CUSTOMER_LONG;
+
+      console.warn(
+        "delivery-radius: customer lat/lng missing. Using TEST_CUSTOMER coordinates from config.",
+        rawCustomer
+      );
+    } else {
+      if (!hasLat) missing.push("lat");
+      if (!hasLng) missing.push("lng");
+    }
 
     return {
       ok: missing.length === 0,
       missing,
       customer: {
         id: rawCustomer.id,
-        username: String(rawCustomer.username || "").trim(),
-        email: String(rawCustomer.email || "").trim(),
-        role: String(rawCustomer.role || "").trim(),
-        preferred_delivery_address: String(
-          rawCustomer.preferred_delivery_address || "",
-        ).trim(),
-        lat: Number(rawCustomer.lat),
-        lng: Number(rawCustomer.lng),
-      },
+        username: rawCustomer.username,
+        preferred_delivery_address: preferredDeliveryAddress,
+        lat,
+        lng
+      }
     };
   }
 
@@ -138,36 +150,33 @@
 
     if (!rawFarm || typeof rawFarm !== "object") {
       console.error(
-        `delivery-radius: farm at index ${index} is missing. Expected an object with id, name, farm_location, lat, lng, logo_url.`,
+        `delivery-radius: farm index ${index} invalid. Expected farm object.`,
+        rawFarm
       );
       return null;
     }
 
-    if (rawFarm.id === undefined || rawFarm.id === null || rawFarm.id === "") {
-      missing.push("id");
-    }
-
     const name = String(rawFarm.name || "").trim();
-    const farmLocation = String(rawFarm.farm_location || "").trim();
-    const logoUrl = String(rawFarm.logo_url || "").trim();
+    const location = String(rawFarm.farm_location || "").trim();
+    const logo = String(rawFarm.logo_url || "").trim();
 
     if (!name) missing.push("name");
-    if (!farmLocation) missing.push("farm_location");
-    if (!logoUrl) missing.push("logo_url");
-
-    const hasLat = isFiniteCoord(rawFarm.lat);
-    const hasLng = isFiniteCoord(rawFarm.lng);
+    if (!location) missing.push("farm_location");
+    if (!logo) missing.push("logo_url");
 
     let lat = Number(rawFarm.lat);
     let lng = Number(rawFarm.lng);
+
+    const hasLat = isFiniteCoord(lat);
+    const hasLng = isFiniteCoord(lng);
 
     if ((!hasLat || !hasLng) && config.ENABLE_DELIVERY_TEST_DEFAULTS) {
       lat = config.TEST_FARM_LAT;
       lng = config.TEST_FARM_LONG;
 
       console.warn(
-        `delivery-radius: farm "${name || `[index ${index}]`}" is missing lat/lng. Using test default farm coordinates from config. Expected farm.lat and farm.lng.`,
-        rawFarm,
+        `delivery-radius: farm "${name}" missing lat/lng. Using TEST_FARM coordinates.`,
+        rawFarm
       );
     } else {
       if (!hasLat) missing.push("lat");
@@ -175,10 +184,10 @@
     }
 
     if (missing.length) {
-      missing.forEach((fieldName) => {
+      missing.forEach(field => {
         console.error(
-          `delivery-radius: farm data missing "${fieldName}". Expected farm.${fieldName} to exist. Skipping farm record:`,
-          rawFarm,
+          `delivery-radius: farm "${name}" missing field "${field}".`,
+          rawFarm
         );
       });
       return null;
@@ -187,11 +196,10 @@
     return {
       id: rawFarm.id,
       name,
-      farm_location: farmLocation,
+      farm_location: location,
       lat,
       lng,
-      logo_url: logoUrl,
-      delivery_radius: Number(rawFarm.delivery_radius),
+      logo_url: logo
     };
   }
 
