@@ -132,7 +132,7 @@
       if (!preferredDeliveryAddress) missing.push("preferred_delivery_address");
     }
     
-    
+    console.log("Lat: " + lat + "long: " + lng + "Address" + preferredDeliveryAddress);
     
     return {
       ok: missing.length === 0,
