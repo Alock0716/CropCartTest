@@ -15,7 +15,7 @@ window.__CROPCART_CONFIG__ = {
   // --------------------------------------------------------------------------
   // API / Server URL
   // --------------------------------------------------------------------------
-  API_URL: "https://d1nnhq1iqs57tb.cloudfront.net/api",
+  API_URL: `${window.location.origin}/ccproxy/api`,
 
   // --------------------------------------------------------------------------
   // Stripe Client Variables
