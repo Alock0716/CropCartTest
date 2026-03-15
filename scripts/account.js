@@ -361,14 +361,8 @@ wireFavoriteShopHandoff();
     };
 
     const candidates = [
-      { path: "/auth/profile/", method: "PATCH", json: payloadSnake },
-      { path: "/auth/profile/", method: "PATCH", json: payloadCamel },
-
-      { path: "/users/me/", method: "PATCH", json: payloadSnake },
-      { path: "/users/me/", method: "PATCH", json: payloadCamel },
-
-      { path: "/account/profile/", method: "PATCH", json: payloadSnake },
-      { path: "/account/profile/", method: "PATCH", json: payloadCamel },
+      { path: "/auth/profile/delivery-address/", method: "PATCH", json: payloadSnake },
+      { path: "/auth/profile/delivery-address/", method: "PATCH", json: payloadCamel },
     ];
 
     let lastRes = null;
@@ -443,6 +437,8 @@ wireFavoriteShopHandoff();
     const username =
       u?.username ?? auth?.username ?? auth?.user?.username ?? "";
     const email = u?.email ?? auth?.email ?? auth?.user?.email ?? "";
+
+    console.log(u);
 
     return {
       raw: u,
