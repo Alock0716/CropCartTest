@@ -398,24 +398,55 @@
     if (!requireProviderRole("Creating a product")) return;
 
     setStatus("Creating product…", "muted");
+    if (addProductBtn) addProductBtn.disabled = true;
 
-    const res = await fetch(`${ROOT_BASE}/farmer/products/`, {
-      method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
-      credentials: "include",
-      body: JSON.stringify(payload),
-    });
+    try {
+      const fd = new FormData();
 
-    const parsed = await readJsonOrText(res);
+      fd.append("name", String(payload.name || "").trim());
+      fd.append("description", String(payload.description || "").trim());
+      fd.append("category", String(payload.category || "").trim());
+      fd.append("price", String(payload.price ?? "").trim());
+      fd.append("stock", String(payload.stock ?? "").trim());
 
-    if (!parsed.ok) {
-      console.log("Create product error:", parsed.status, parsed.data ?? parsed.raw);
-      setStatus(`Create product failed (HTTP ${parsed.status})`, "danger");
-      return;
+      if (payload.is_active) {
+        fd.append("is_active", "true");
+      }
+
+      if (payload.photo instanceof File) {
+        fd.append("photo", payload.photo);
+      }
+
+      const res = await fetch(`${ROOT_BASE}/farmer/products/`, {
+        method: "POST",
+        headers: authHeaders({ Accept: "application/json" }),
+        credentials: "include",
+        body: fd,
+      });
+
+      const parsed = await readJsonOrText(res);
+
+      if (!parsed.ok) {
+        console.log("Create product error:", parsed.status, parsed.data ?? parsed.raw);
+
+        const msg =
+          parsed.data?.error ||
+          parsed.data?.detail ||
+          parsed.data?.name?.[0] ||
+          parsed.data?.stock?.[0] ||
+          parsed.raw ||
+          `Create product failed (HTTP ${parsed.status})`;
+
+        setStatus(msg, "danger");
+        return;
+      }
+
+      setStatus("Product created.", "success");
+      addProductForm?.reset();
+      await loadInventory();
+    } finally {
+      if (addProductBtn) addProductBtn.disabled = false;
     }
-
-    setStatus("Product created.", "success");
-    await loadInventory();
   }
 
   async function updateProduct(productId, payload) {
@@ -734,26 +765,36 @@
 
       const form = new FormData(addProductForm);
 
-      // NOTE: These field names must match your farmer.html inputs’ name="" attributes.
-      // If your HTML uses different names, update these keys.
       const payload = {
         name: String(form.get("name") || "").trim(),
         description: String(form.get("description") || "").trim(),
         category: String(form.get("category") || "").trim(),
-        price: Number(form.get("price") || 0),
-        stock: Number(form.get("stock") || 0),
+        price: String(form.get("price") || "").trim(),
+        stock: String(form.get("stock") || "").trim(),
+        photo: form.get("photo"),
       };
-
-      // If your HTML includes an "is_active" checkbox
-      if (form.has("is_active")) payload.is_active = true;
 
       if (!payload.name) {
         setStatus("Product name is required.", "danger");
         return;
       }
 
+      if (!payload.category) {
+        setStatus("Category is required.", "danger");
+        return;
+      }
+
+      if (!payload.price || Number(payload.price) < 0) {
+        setStatus("Please enter a valid price.", "danger");
+        return;
+      }
+
+      if (!payload.stock || Number(payload.stock) < 1) {
+        setStatus("Stock must be at least 1.", "danger");
+        return;
+      }
+
       await createProduct(payload);
-      addProductForm.reset();
     });
 
     // Stripe button

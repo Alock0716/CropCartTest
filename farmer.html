@@ -92,9 +92,21 @@
                 <input
                   class="form-control"
                   id="pName"
+                  name="name"
                   placeholder="Ribeye Steak (12 oz)"
                   required
                 />
+              </div>
+
+              <div>
+                <label class="form-label fw-semibold" for="pDescription">Description</label>
+                <textarea
+                  class="form-control"
+                  id="pDescription"
+                  name="description"
+                  rows="3"
+                  placeholder="Optional product description..."
+                ></textarea>
               </div>
 
               <div class="row g-2">
@@ -103,6 +115,7 @@
                   <input
                     class="form-control"
                     id="pPrice"
+                    name="price"
                     type="number"
                     step="0.01"
                     min="0"
@@ -115,9 +128,10 @@
                   <input
                     class="form-control"
                     id="pQty"
+                    name="stock"
                     type="number"
                     step="1"
-                    min="0"
+                    min="1"
                     required
                   />
                 </div>
@@ -125,8 +139,7 @@
 
               <div>
                 <label class="form-label fw-semibold" for="pCategory">Category</label>
-                <!-- Use API category slugs as values -->
-                <select class="form-select" id="pCategory" required>
+                <select class="form-select" id="pCategory" name="category" required>
                   <option value="fruits_vegetables">Fruits & Vegetables</option>
                   <option value="meat_poultry">Meat & Poultry</option>
                   <option value="dairy_eggs">Dairy & Eggs</option>
@@ -140,7 +153,13 @@
 
               <div>
                 <label class="form-label fw-semibold" for="pImage">Photo</label>
-                <input class="form-control" id="pImage" type="file" accept="image/*" />
+                <input
+                  class="form-control"
+                  id="pImage"
+                  name="photo"
+                  type="file"
+                  accept="image/*"
+                />
               </div>
 
               <button class="btn cc-btn" id="addProductBtn" type="submit">
