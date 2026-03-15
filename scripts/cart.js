@@ -520,9 +520,8 @@
 
     tableBodyEl.innerHTML = items
       .map((item) => {
-        const p = item.product || {};
-        const name = p.name || "Item";
-        const price = Number(p.price) || 0;
+        const name = item.product_name || "Item";
+        const price = Number(item.product_price) || 0;
         const qty = Number(item.quantity) || 1;
         const line = Number(item.subtotal) || price * qty;
 
