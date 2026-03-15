@@ -403,7 +403,7 @@
        */
       fd.append("logo", file);
 
-      const res = await fetch(`${ROOT_BASE}/farmer/farm/`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
         method: "PUT",
         headers: authHeaders({ Accept: "application/json" }),
         credentials: "include",
