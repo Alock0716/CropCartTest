@@ -68,8 +68,12 @@
   const addProductForm = document.getElementById("addProductForm");
   const addProductBtn = document.getElementById("addProductBtn");
 
-  // Header title
+  // Header
   const farmerPortalTitle = document.getElementById("farmerPortalTitle");
+  const farmLogoInput = document.getElementById("farmLogoInput");
+  const farmLogoImg = document.getElementById("farmLogoImg");
+  const farmLogoPlaceholder = document.getElementById("farmLogoPlaceholder");
+  const farmLogoStatus = document.getElementById("farmLogoStatus");
 
   // Stripe
   const connectStripeBtn = document.getElementById("connectStripeBtn");
@@ -101,6 +105,7 @@
   // ============================================================================
 
   let inventory = [];
+  let ownedFarm = null;
   let orders = [];
 
   /**
@@ -148,6 +153,31 @@
 
   function showProviderHelp(msg) {
     setStatus(msg, "danger");
+  }
+
+  function setFarmLogoStatus(msg, kind = "muted") {
+    if (!farmLogoStatus) return;
+    farmLogoStatus.textContent = msg || "";
+    farmLogoStatus.className = `small text-${kind}`;
+  }
+
+  function renderFarmLogo(logoUrl) {
+    const url = String(logoUrl || "").trim();
+
+    if (!farmLogoImg || !farmLogoPlaceholder) return;
+
+    if (url) {
+      farmLogoImg.src = url;
+      farmLogoImg.classList.remove("d-none");
+      farmLogoPlaceholder.classList.add("d-none");
+      setFarmLogoStatus("Click the logo to replace it.", "muted");
+      return;
+    }
+
+    farmLogoImg.removeAttribute("src");
+    farmLogoImg.classList.add("d-none");
+    farmLogoPlaceholder.classList.remove("d-none");
+    setFarmLogoStatus("Click the box to upload your farm logo.", "muted");
   }
 
   // ============================================================================
@@ -311,8 +341,6 @@
   // ============================================================================
 
   async function loadFarmProfileTitle() {
-    // Optional enhancement: set page title based on owned farm.
-    // The farms/ endpoint is public-ish in your routing list and may or may not set is_owner.
     try {
       const res = await fetch(`${ROOT_BASE}/farms/`, {
         method: "GET",
@@ -323,14 +351,82 @@
       const parsed = await readJsonOrText(res);
       if (!parsed.ok || !Array.isArray(parsed.data)) return;
 
-      const owned = parsed.data.find((f) => f?.is_owner === true) || null;
-      const name = String(owned?.name || "").trim();
-      if (!name) return;
+      ownedFarm = parsed.data.find((f) => f?.is_owner === true) || null;
+      if (!ownedFarm) return;
 
-      if (farmerPortalTitle) farmerPortalTitle.textContent = `${name}'s Farmer Portal`;
-      document.title = `${name} | Farmer Portal`;
+      const name = String(ownedFarm?.name || "").trim();
+      const logoUrl = String(ownedFarm?.logo_url || "").trim();
+
+      if (name) {
+        if (farmerPortalTitle) farmerPortalTitle.textContent = `${name}'s Farmer Portal`;
+        document.title = `${name} | Farmer Portal`;
+      }
+
+      renderFarmLogo(logoUrl);
     } catch {
       // silent: not critical
+    }
+  }
+
+  async function uploadFarmLogo(file) {
+    if (!requireProviderRole("Uploading a farm logo")) return;
+    if (!file) return;
+
+    setFarmLogoStatus("Uploading logo…", "muted");
+
+    // optimistic preview
+    const localUrl = URL.createObjectURL(file);
+    renderFarmLogo(localUrl);
+
+    try {
+      const fd = new FormData();
+
+      /**
+       * NOTE:
+       * The current API docs do NOT document a farm logo field.
+       * This frontend attempts a multipart farm update using field name "logo".
+       * If the backend uses a different field name, this request will need to match it.
+       */
+      fd.append("logo", file);
+
+      const res = await fetch(`${ROOT_BASE}/farmer/farm/`, {
+        method: "PUT",
+        headers: authHeaders({ Accept: "application/json" }),
+        credentials: "include",
+        body: fd,
+      });
+
+      const parsed = await readJsonOrText(res);
+
+      if (!parsed.ok) {
+        console.log("Farm logo upload error:", parsed.status, parsed.data ?? parsed.raw);
+
+        setFarmLogoStatus(
+          parsed.data?.error ||
+            parsed.data?.detail ||
+            parsed.raw ||
+            `Logo upload failed (HTTP ${parsed.status})`,
+          "danger",
+        );
+
+        // fall back to server data if we have it
+        renderFarmLogo(ownedFarm?.logo_url || "");
+        return;
+      }
+
+      // refresh farm info after successful save
+      await loadFarmProfileTitle();
+      setFarmLogoStatus("Farm logo updated.", "success");
+    } catch (err) {
+      console.error("Farm logo upload failed:", err);
+      setFarmLogoStatus(
+        "Logo upload could not be completed. The backend may not support farm logo uploads yet.",
+        "danger",
+      );
+      renderFarmLogo(ownedFarm?.logo_url || "");
+    } finally {
+      URL.revokeObjectURL(localUrl);
+      if (farmLogoInput) farmLogoInput.value = "";
     }
   }
 
@@ -810,6 +906,14 @@
       if (action === "confirmOrder") {
         confirmOrder(id);
       }
+    });
+
+    //Upload Logo
+    farmLogoInput?.addEventListener("change", async (e) => {
+      const file = e.target?.files?.[0];
+      if (!file) return;
+
+      await uploadFarmLogo(file);
     });
   }
 

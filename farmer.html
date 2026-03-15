@@ -71,9 +71,35 @@
     <!-- PAGE CONTENT                                               -->
     <!-- ========================================================= -->
     <main class="container py-5">
-      <div class="d-flex flex-wrap align-items-end justify-content-left gap-3 mb-2">
+      <div class="d-flex flex-wrap align-items-center justify-content-left gap-3 mb-2">
+        <label
+          for="farmLogoInput"
+          id="farmLogoUpload"
+          class="cc-farm-logo-upload"
+          title="Click to upload or replace farm logo"
+        >
+          <img
+            id="farmLogoImg"
+            class="cc-farm-logo-img d-none"
+            alt="Farm logo"
+          />
+          <div id="farmLogoPlaceholder" class="cc-farm-logo-placeholder">
+            Upload<br />Logo
+          </div>
+        </label>
+
+        <input
+          id="farmLogoInput"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          class="d-none"
+        />
+
         <div>
           <h1 id="farmerPortalTitle" class="h3 fw-bold mb-1">Farmer Portal</h1>
+          <div id="farmLogoStatus" class="small text-muted">
+            Click the logo box to upload or replace your farm logo.
+          </div>
         </div>
       </div>
 
