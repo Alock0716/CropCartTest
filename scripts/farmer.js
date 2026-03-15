@@ -309,26 +309,40 @@
 
     if (!orders.length) {
       farmerOrdersBody.innerHTML =
-        `<tr><td colspan="6" class="text-muted small py-4">No orders found.</td></tr>`;
+        `<tr><td colspan="4" class="text-muted small py-4">No orders found.</td></tr>`;
       return;
     }
 
     for (const o of orders) {
       const id = o?.id ?? o?.order_id ?? "";
-      const status = escapeHtml(o?.status ?? "—");
-      const total = toMoney(o?.total ?? o?.total_price);
-      const created = escapeHtml(o?.created_at ?? o?.created ?? "—");
+      const customer = o?.user ?? "—";
+      const status = escapeHtml(o?.status_display ?? o?.status ?? "—");
+
+      const myFarmConfirmation = Array.isArray(o?.farm_confirmations)
+        ? o.farm_confirmations.find((fc) => fc && fc.is_confirmed === true)
+        : null;
+
+      const isConfirmed = Boolean(myFarmConfirmation);
 
       farmerOrdersBody.insertAdjacentHTML(
         "beforeend",
         `
           <tr>
-            <td class="small">${escapeHtml(id)}</td>
-            <td class="small">${status}</td>
-            <td class="small">${total}</td>
-            <td class="small">${created}</td>
+            <td class="small">#${escapeHtml(id)}</td>
+            <td class="small">${escapeHtml(customer)}</td>
+            <td class="small">
+              ${status}
+              ${isConfirmed ? '<div class="text-success small">Confirmed by your farm</div>' : ""}
+            </td>
             <td class="small text-end">
-              <button class="btn btn-sm btn-outline-success" data-action="confirmOrder" data-id="${escapeHtml(id)}">Confirm</button>
+              <button
+                class="btn btn-sm ${isConfirmed ? "btn-outline-secondary" : "btn-outline-success"}"
+                data-action="confirmOrder"
+                data-id="${escapeHtml(id)}"
+                ${isConfirmed ? "disabled" : ""}
+              >
+                ${isConfirmed ? "Confirmed" : "Confirm"}
+              </button>
             </td>
           </tr>
         `,
@@ -602,7 +616,7 @@
     setStatus("Confirming order…", "muted");
 
     const res = await fetch(`${ROOT_BASE}/farmer/orders/${encodeURIComponent(orderId)}/confirm/`, {
-      method: "POST",
+      method: "PUT",
       headers: authHeaders({ Accept: "application/json" }),
       credentials: "include",
     });
@@ -611,11 +625,24 @@
 
     if (!parsed.ok) {
       console.log("Confirm order error:", parsed.status, parsed.data ?? parsed.raw);
-      setStatus(`Confirm failed (HTTP ${parsed.status})`, "danger");
+
+      const msg =
+        parsed.data?.error ||
+        parsed.data?.detail ||
+        parsed.raw ||
+        `Confirm failed (HTTP ${parsed.status})`;
+
+      setStatus(msg, "danger");
       return;
     }
 
-    setStatus("Order confirmed.", "success");
+    const msg =
+      parsed.data?.message ||
+      (parsed.data?.all_farms_confirmed
+        ? "Order confirmed. All farms have confirmed."
+        : "Order confirmed for your farm.");
+
+    setStatus(msg, "success");
     await loadOrders();
   }
 
