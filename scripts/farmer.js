@@ -406,12 +406,8 @@
       fd.append("name", String(payload.name || "").trim());
       fd.append("description", String(payload.description || "").trim());
       fd.append("category", String(payload.category || "").trim());
-      fd.append("price", String(payload.price ?? "").trim());
-      fd.append("stock", String(payload.stock ?? "").trim());
-
-      if (payload.is_active) {
-        fd.append("is_active", "true");
-      }
+      fd.append("price", String(payload.price || "").trim());
+      fd.append("stock", String(payload.stock || "").trim());
 
       if (payload.photo instanceof File) {
         fd.append("photo", payload.photo);
@@ -432,8 +428,6 @@
         const msg =
           parsed.data?.error ||
           parsed.data?.detail ||
-          parsed.data?.name?.[0] ||
-          parsed.data?.stock?.[0] ||
           parsed.raw ||
           `Create product failed (HTTP ${parsed.status})`;
 
@@ -444,6 +438,9 @@
       setStatus("Product created.", "success");
       addProductForm?.reset();
       await loadInventory();
+    } catch (err) {
+      console.error("Create product fetch failed:", err);
+      setStatus("Product creation failed before the response could be read.", "danger");
     } finally {
       if (addProductBtn) addProductBtn.disabled = false;
     }
