@@ -759,87 +759,124 @@
   /**
    * Re-render the product list based on search/category/sort/farm/location.
    */
-  function render() {
-    if (!productsHostEl) return;
+function render() {
+  if (!productsHostEl) return;
 
-    const q = String(searchEl?.value || "")
-      .trim()
-      .toLowerCase();
-    const category = String(categoryEl?.value || "All").trim();
-    const sortValue = getSortValue();
+  const q = String(searchEl?.value || "")
+    .trim()
+    .toLowerCase();
+  const category = String(categoryEl?.value || "All").trim();
+  const sortValue = getSortValue();
 
-    const farmSelectedRaw = String(farmEl?.value || "all").trim();
-    const farmSelected = farmSelectedRaw.toLowerCase();
-    const selectedLocation = String(locationEl?.value || "All").trim();
+  const farmSelectedRaw = String(farmEl?.value || "all").trim();
+  const farmSelected = farmSelectedRaw.toLowerCase();
+  const selectedLocation = String(locationEl?.value || "All").trim();
 
-    // Start with full list
-    let list = [...allProducts];
+  // Start with full list
+  let list = [...allProducts];
 
-    // Farm filter
-    if (farmSelected && farmSelected !== "all") {
-      list = list.filter(
-        (p) =>
-          String(p.farm_name ?? "")
-            .trim()
-            .toLowerCase() === farmSelected,
-      );
-    }
-
-    // Search filter
-    if (q) {
-      list = list.filter((p) => {
-        const name = String(p.name ?? "").toLowerCase();
-        const desc = String(p.description ?? "").toLowerCase();
-        const farm = String(p.farm_name ?? "").toLowerCase();
-        const cat = String(
-          p.category_display ?? p.category ?? "",
-        ).toLowerCase();
-        return (
-          name.includes(q) ||
-          desc.includes(q) ||
-          farm.includes(q) ||
-          cat.includes(q)
-        );
-      });
-    }
-
-    // Category filter
-    if (category && category !== "All") {
-      list = list.filter((p) => {
-        const apiCat = String(p.category_display ?? p.category ?? "").trim();
-        return apiCat.toLowerCase() === category.toLowerCase();
-      });
-    }
-
-    // Location filter
-    if (selectedLocation && selectedLocation !== "All") {
-      const want = selectedLocation.toLowerCase();
-      list = list.filter((p) => {
-        const loc = getProductLocationLabel(p).toLowerCase();
-        return loc === want;
-      });
-    }
-
-    // Sort
-    list.sort((a, b) => compareProducts(a, b, sortValue));
-
-    const filtersBadgeHTML =`
-      <div class="d-flex flex-wrap gap-1 justify-content-center my-1">
-        ${category != "all" && category != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="category">${category}</span>`: ""} 
-        ${farmSelected != "all" && farmSelected != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="farm">${farmSelected}</span>`: ""} 
-        ${selectedLocation != "all" && selectedLocation != "All"  ? `<span class="badge rounded-pill cc-filter-badge" data-reset="location">${selectedLocation}</span>`: ""} 
-      </div>
-    `
-
-    productsHostEl.innerHTML = `
-      <div class="cc-products-head">
-        <small class="text-muted">Showing <b>${list.length}</b> of ${allProducts.length}</small>
-        ${filtersBadgeHTML}
-        <small class="text-muted">Sorted by: ${CC.escapeHtml(sortValue)}</small>
-      </div>
-      ${list.length ? renderCards(list) : renderEmptyState(q, category)}
-    `;
+  // Favorite farms filter
+  // The UI currently exposes this under the sort dropdown as value="favorites".
+  // Treat it as a filter-first mode, then apply a stable secondary sort by farm/name.
+  if (sortValue === "favorites") {
+    list = list.filter((p) => {
+      const farmId = Number(p?.farm_id);
+      return Number.isFinite(farmId) && favoriteFarmIdSet.has(farmId);
+    });
   }
+
+  // Farm filter
+  if (farmSelected && farmSelected !== "all") {
+    list = list.filter(
+      (p) =>
+        String(p.farm_name ?? "")
+          .trim()
+          .toLowerCase() === farmSelected,
+    );
+  }
+
+  // Search filter
+  if (q) {
+    list = list.filter((p) => {
+      const name = String(p.name ?? "").toLowerCase();
+      const desc = String(p.description ?? "").toLowerCase();
+      const farm = String(p.farm_name ?? "").toLowerCase();
+      const cat = String(
+        p.category_display ?? p.category ?? "",
+      ).toLowerCase();
+
+      return (
+        name.includes(q) ||
+        desc.includes(q) ||
+        farm.includes(q) ||
+        cat.includes(q)
+      );
+    });
+  }
+
+  // Category filter
+  if (category && category !== "All") {
+    list = list.filter((p) => {
+      const apiCat = String(p.category_display ?? p.category ?? "").trim();
+      return apiCat.toLowerCase() === category.toLowerCase();
+    });
+  }
+
+  // Location filter
+  if (selectedLocation && selectedLocation !== "All") {
+    const want = selectedLocation.toLowerCase();
+    list = list.filter((p) => {
+      const loc = getProductLocationLabel(p).toLowerCase();
+      return loc === want;
+    });
+  }
+
+  // Sort
+  if (sortValue === "favorites") {
+    list.sort((a, b) => {
+      const farmCompare = String(a.farm_name ?? "").localeCompare(
+        String(b.farm_name ?? ""),
+      );
+      if (farmCompare !== 0) return farmCompare;
+
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+    });
+  } else {
+    list.sort((a, b) => compareProducts(a, b, sortValue));
+  }
+
+  const filtersBadgeHTML = `
+    <div class="d-flex flex-wrap gap-1 justify-content-center my-1">
+      ${sortValue === "favorites" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="favorites">Favorite Farms</span>` : ""}
+      ${category !== "all" && category !== "All" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="category">${category}</span>` : ""}
+      ${farmSelected !== "all" && farmSelected !== "All" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="farm">${farmSelectedRaw}</span>` : ""}
+      ${selectedLocation !== "all" && selectedLocation !== "All" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="location">${selectedLocation}</span>` : ""}
+    </div>
+  `;
+
+  const emptyStateHtml =
+    sortValue === "favorites"
+      ? `
+        <div class="alert alert-info mb-0">
+          <div class="fw-bold">No products from favorite farms found.</div>
+          <div class="small mt-1">
+            ${CC.auth.isLoggedIn()
+              ? "Star a farm on a product card or switch to another sort."
+              : "Sign in and star a farm to use this filter."}
+          </div>
+        </div>
+      `
+      : renderEmptyState(q, category);
+
+  productsHostEl.innerHTML = `
+    <div class="cc-products-head">
+      <small class="text-muted">Showing <b>${list.length}</b> of ${allProducts.length}</small>
+      ${filtersBadgeHTML}
+      <small class="text-muted">Sorted by: ${CC.escapeHtml(sortValue)}</small>
+    </div>
+    ${list.length ? renderCards(list) : emptyStateHtml}
+  `;
+}
 
   /* ==========================================================================
    * API LOADERS
