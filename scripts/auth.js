@@ -257,6 +257,22 @@
 
     const statusEl = document.getElementById("pageStatus");
     const btn = document.getElementById("farmerRegisterBtn");
+    const sellsCertifiedGoodsEl = document.getElementById("sellsCertifiedGoods");
+    const certificateUploadWrapEl = document.getElementById("certificateUploadWrap");
+    const certificateFileEl = document.getElementById("certificateFile");
+
+    function syncCertificateVisibility() {
+      const shouldShow = !!sellsCertifiedGoodsEl?.checked;
+
+      certificateUploadWrapEl?.classList.toggle("d-none", !shouldShow);
+
+      if (!shouldShow && certificateFileEl) {
+        certificateFileEl.value = "";
+      }
+    }
+
+    sellsCertifiedGoodsEl?.addEventListener("change", syncCertificateVisibility);
+    syncCertificateVisibility();
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -277,6 +293,14 @@
         document.getElementById("farmDescription")?.value?.trim() || "";
       const farm_location =
         document.getElementById("farmLocation")?.value?.trim() || "";
+
+      // --- Extra provider fields ---
+      const phone =
+        document.getElementById("providerPhone")?.value?.trim() || "";
+      const sells_certified_goods =
+        !!document.getElementById("sellsCertifiedGoods")?.checked;
+      const certificateFile =
+        document.getElementById("certificateFile")?.files?.[0] || null;
 
       if (!username || !email || !password || !farm_name) {
         CC.setStatus(
@@ -305,19 +329,36 @@
       if (btn) btn.disabled = true;
 
       try {
-        const payload = {
-          username,
-          email,
-          password,
-          farm_name,
-          ...(farm_description ? { farm_description } : {}),
-          ...(farm_location ? { farm_location } : {}),
-        };
+        const formData = new FormData();
 
-        const parsed = await CC.apiRequest(PROVIDER_REGISTER_PATH, {
+        formData.append("username", username);
+        formData.append("email", email);
+        formData.append("password", password);
+        formData.append("farm_name", farm_name);
+
+        if (farm_description) formData.append("farm_description", farm_description);
+        if (farm_location) formData.append("farm_location", farm_location);
+        if (phone) formData.append("phone", phone);
+
+        formData.append(
+          "sells_certified_goods",
+          sells_certified_goods ? "true" : "false"
+        );
+
+        if (certificateFile) {
+          formData.append("certificate", certificateFile);
+        }
+
+        const res = await fetch(CC.buildApiUrl(PROVIDER_REGISTER_PATH), {
           method: "POST",
-          json: payload,
+          headers: {
+            ...CC.auth.authHeader?.(),
+            Accept: "application/json",
+          },
+          body: formData,
         });
+
+        const parsed = await CC.readResponse(res);
 
         if (!parsed.ok) {
           const msg =

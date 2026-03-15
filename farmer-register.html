@@ -58,7 +58,7 @@
     <!-- ========================================================= -->
     <!-- PAGE CONTENT                                               -->
     <!-- ========================================================= -->
-    <main class="container px-3 pb-5 p-5 d-flex justify-content-between">
+    <main class="container px-3 pb-5 p-5 mb-5 d-flex justify-content-between">
       <div class="row g-4">
         <!-- Application -->
         <div class="col-6">
@@ -72,7 +72,7 @@
 
               <div id="pageStatus" class="small mb-3 text-muted"></div>
 
-              <form id="farmerRegisterForm" method="post">
+              <form id="farmerRegisterForm" method="post" enctype="multipart/form-data">
                 <div class="row g-3">
                   <div class="col-md-6">
                     <label class="form-label" for="providerUsername">Username</label>
@@ -139,6 +139,20 @@
                     ></textarea>
                   </div>
 
+                  <div class="col-md-12 d-flex align-items-end">
+                    <div class="form-check mt-2">
+                      <label class="form-check-label" for="sellsCertifiedGoods">
+                        I sell items that require USDA certifications
+                      </label>
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="sellsCertifiedGoods"
+                        name="sells_certified_goods"
+                      />
+                    </div>
+                  </div>
+
                   <div class="col-12">
                     <label class="form-label" for="farmLocation">
                       Farm Address
@@ -147,6 +161,37 @@
                       class="form-control"
                       id="farmLocation"
                     />
+                  </div>
+
+                  <div class="col-md-12">
+                    <label class="form-label" for="providerPhone">Phone number</label>
+                    <input
+                      class="form-control"
+                      id="providerPhone"
+                      name="phone"
+                      type="tel"
+                      autocomplete="tel"
+                      placeholder="(555) 123-4567"
+                    />
+                    <div class="form-text">
+                      Used if we need to contact you about your application.
+                    </div>
+                  </div>
+
+                  <div class="col-12 d-none" id="certificateUploadWrap">
+                    <label class="form-label" for="certificateFile">
+                      Certification document
+                    </label>
+                    <input
+                      class="form-control"
+                      id="certificateFile"
+                      name="certificate"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    />
+                    <div class="form-text">
+                      Please upload a USDA certificate or similar supporting document for the items you indicated require certification.
+                    </div>
                   </div>
 
                   <div class="col-12 d-grid mt-2">
@@ -220,7 +265,6 @@
         </div>
       </div>
     </main>
-
     <!-- ========================================================= -->
     <!-- FOOTER                                                     -->
     <!-- ========================================================= -->
