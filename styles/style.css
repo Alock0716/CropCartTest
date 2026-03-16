@@ -428,7 +428,11 @@ body .cc-muted {
   height: 250px;
   width: 100%;
   background:
-    radial-gradient(600px 250px at 20% 10%, rgba(47, 122, 77, 0.18), transparent 60%),
+    radial-gradient(
+      600px 250px at 20% 10%,
+      rgba(47, 122, 77, 0.18),
+      transparent 60%
+    ),
     linear-gradient(135deg, rgba(30, 91, 56, 0.09), rgba(47, 122, 77, 0.06)),
     var(--cc-cream-2);
   display: flex;
@@ -681,7 +685,7 @@ body .cc-muted {
 }
 
 /* Store filters dropdown sizing */
-.cc-filter-dropdown{
+.cc-filter-dropdown {
   min-width: 320px;
   max-width: 92vw;
 }
@@ -847,7 +851,11 @@ body .cc-muted {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(600px 250px at 20% 10%, rgba(47, 122, 77, 0.18), transparent 60%),
+    radial-gradient(
+      600px 250px at 20% 10%,
+      rgba(47, 122, 77, 0.18),
+      transparent 60%
+    ),
     linear-gradient(135deg, rgba(30, 91, 56, 0.09), rgba(47, 122, 77, 0.06)),
     var(--cc-cream-2);
   border: 1px solid rgba(30, 91, 56, 0.16);

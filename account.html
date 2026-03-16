@@ -70,12 +70,14 @@
             <li class="nav-item">
               <a class="nav-link" href="cart.html">My Cart</a>
             </li>
-             <!-- Provider-only link -->
+            <!-- Provider-only link -->
             <li class="nav-item d-none" id="accountFarmerNavItem">
               <a class="nav-link" href="farmer.html">Farmer Portal</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="delivery-radius.html">Check Delivery Range</a>
+              <a class="nav-link" href="delivery-radius.html">
+                Check Delivery Range
+              </a>
             </li>
             <!-- Auth.js renders into this -->
             <li class="nav-item ms-lg-2" id="authNav"></li>
@@ -154,14 +156,22 @@
                 <label class="form-label fw-semibold" for="accFirst"
                   >First name</label
                 >
-                <input id="accFirst" class="form-control" autocomplete="given-name" />
+                <input
+                  id="accFirst"
+                  class="form-control"
+                  autocomplete="given-name"
+                />
               </div>
 
               <div class="col-md-6">
                 <label class="form-label fw-semibold" for="accLast"
                   >Last name</label
                 >
-                <input id="accLast" class="form-control" autocomplete="family-name" />
+                <input
+                  id="accLast"
+                  class="form-control"
+                  autocomplete="family-name"
+                />
               </div>
 
               <div class="col-12 d-flex flex-wrap gap-2">
@@ -216,11 +226,16 @@
               >
                 Delivery status unavailable
               </span>
-              <div id="deliveryAddressBadgeNote" class="small text-muted mt-2"></div>
+              <div
+                id="deliveryAddressBadgeNote"
+                class="small text-muted mt-2"
+              ></div>
             </div>
 
             <div class="text-muted small mt-2">
-              This address is cached on this device for quick checkout. You can set it here, or we will pull it from your last order if you do not have one set.
+              This address is cached on this device for quick checkout. You can
+              set it here, or we will pull it from your last order if you do not
+              have one set.
             </div>
           </section>
           <!-- ----------------------------------------------------- -->
@@ -260,9 +275,7 @@
             <h2 class="h5 fw-bold mb-3">Provider info</h2>
 
             <div id="providerBox">
-              <div class="text-muted small">
-                Loading provider info…
-              </div>
+              <div class="text-muted small">Loading provider info…</div>
             </div>
 
             <hr class="cc-hr" />
@@ -440,7 +453,9 @@
               </div>
 
               <div class="col-md-6">
-                <label class="form-label fw-semibold" for="addrCity">City</label>
+                <label class="form-label fw-semibold" for="addrCity"
+                  >City</label
+                >
                 <input
                   id="addrCity"
                   class="form-control"

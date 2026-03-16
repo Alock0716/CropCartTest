@@ -91,7 +91,7 @@
   /**
    * Clear all filter controls back to defaults and re-render.
    * This is used by the "Clear filters" button in the dropdown.
-  */
+   */
   function clearAllFilters() {
     if (searchEl) searchEl.value = "";
 
@@ -130,7 +130,9 @@
 
     // 2) Fallback to sessionStorage
     if (!farmParamRaw) {
-      farmParamRaw = String(sessionStorage.getItem("cc_store_prefarm") || "").trim();
+      farmParamRaw = String(
+        sessionStorage.getItem("cc_store_prefarm") || "",
+      ).trim();
     }
 
     if (!farmParamRaw) return;
@@ -316,8 +318,7 @@
     if (!favoriteFarmsHostEl) return;
 
     if (!CC.auth.isLoggedIn()) {
-      favoriteFarmsHostEl.innerHTML =
-        `<div class="text-muted small">Sign in and favorite some farms to see them listed here.</div>`;
+      favoriteFarmsHostEl.innerHTML = `<div class="text-muted small">Sign in and favorite some farms to see them listed here.</div>`;
       return;
     }
 
@@ -326,8 +327,7 @@
     );
 
     if (!names.length) {
-      favoriteFarmsHostEl.innerHTML =
-        `<div class="text-muted small">No favorites yet — star a farm on a product card.</div>`;
+      favoriteFarmsHostEl.innerHTML = `<div class="text-muted small">No favorites yet — star a farm on a product card.</div>`;
       return;
     }
 
@@ -341,7 +341,7 @@
           : null;
 
         const logoUrl = String(
-          farmRow?.logo_url ?? farmRow?.logo ?? farmRow?.image_url ?? ""
+          farmRow?.logo_url ?? farmRow?.logo ?? farmRow?.image_url ?? "",
         ).trim();
 
         const logoHtml = logoUrl
@@ -352,7 +352,7 @@
               class="cc-farm-logo-thumb"
               loading="lazy"
               onerror="this.outerHTML='<div class=&quot;cc-farm-logo-fallback&quot;>${CC.escapeHtml(
-                (name[0] || "F").toUpperCase()
+                (name[0] || "F").toUpperCase(),
               )}</div>'"
             />
           `
@@ -791,93 +791,93 @@
   /**
    * Re-render the product list based on search/category/sort/farm/location.
    */
-function render() {
-  if (!productsHostEl) return;
+  function render() {
+    if (!productsHostEl) return;
 
-  const q = String(searchEl?.value || "")
-    .trim()
-    .toLowerCase();
-  const category = String(categoryEl?.value || "All").trim();
-  const sortValue = getSortValue();
+    const q = String(searchEl?.value || "")
+      .trim()
+      .toLowerCase();
+    const category = String(categoryEl?.value || "All").trim();
+    const sortValue = getSortValue();
 
-  const farmSelectedRaw = String(farmEl?.value || "all").trim();
-  const farmSelected = farmSelectedRaw.toLowerCase();
-  const selectedLocation = String(locationEl?.value || "All").trim();
+    const farmSelectedRaw = String(farmEl?.value || "all").trim();
+    const farmSelected = farmSelectedRaw.toLowerCase();
+    const selectedLocation = String(locationEl?.value || "All").trim();
 
-  // Start with full list
-  let list = [...allProducts];
+    // Start with full list
+    let list = [...allProducts];
 
-  // Favorite farms filter
-  // The UI currently exposes this under the sort dropdown as value="favorites".
-  // Treat it as a filter-first mode, then apply a stable secondary sort by farm/name.
-  if (sortValue === "favorites") {
-    list = list.filter((p) => {
-      const farmId = Number(p?.farm_id);
-      return Number.isFinite(farmId) && favoriteFarmIdSet.has(farmId);
-    });
-  }
+    // Favorite farms filter
+    // The UI currently exposes this under the sort dropdown as value="favorites".
+    // Treat it as a filter-first mode, then apply a stable secondary sort by farm/name.
+    if (sortValue === "favorites") {
+      list = list.filter((p) => {
+        const farmId = Number(p?.farm_id);
+        return Number.isFinite(farmId) && favoriteFarmIdSet.has(farmId);
+      });
+    }
 
-  // Farm filter
-  if (farmSelected && farmSelected !== "all") {
-    list = list.filter(
-      (p) =>
-        String(p.farm_name ?? "")
-          .trim()
-          .toLowerCase() === farmSelected,
-    );
-  }
-
-  // Search filter
-  if (q) {
-    list = list.filter((p) => {
-      const name = String(p.name ?? "").toLowerCase();
-      const desc = String(p.description ?? "").toLowerCase();
-      const farm = String(p.farm_name ?? "").toLowerCase();
-      const cat = String(
-        p.category_display ?? p.category ?? "",
-      ).toLowerCase();
-
-      return (
-        name.includes(q) ||
-        desc.includes(q) ||
-        farm.includes(q) ||
-        cat.includes(q)
+    // Farm filter
+    if (farmSelected && farmSelected !== "all") {
+      list = list.filter(
+        (p) =>
+          String(p.farm_name ?? "")
+            .trim()
+            .toLowerCase() === farmSelected,
       );
-    });
-  }
+    }
 
-  // Category filter
-  if (category && category !== "All") {
-    list = list.filter((p) => {
-      const apiCat = String(p.category_display ?? p.category ?? "").trim();
-      return apiCat.toLowerCase() === category.toLowerCase();
-    });
-  }
+    // Search filter
+    if (q) {
+      list = list.filter((p) => {
+        const name = String(p.name ?? "").toLowerCase();
+        const desc = String(p.description ?? "").toLowerCase();
+        const farm = String(p.farm_name ?? "").toLowerCase();
+        const cat = String(
+          p.category_display ?? p.category ?? "",
+        ).toLowerCase();
 
-  // Location filter
-  if (selectedLocation && selectedLocation !== "All") {
-    const want = selectedLocation.toLowerCase();
-    list = list.filter((p) => {
-      const loc = getProductLocationLabel(p).toLowerCase();
-      return loc === want;
-    });
-  }
+        return (
+          name.includes(q) ||
+          desc.includes(q) ||
+          farm.includes(q) ||
+          cat.includes(q)
+        );
+      });
+    }
 
-  // Sort
-  if (sortValue === "favorites") {
-    list.sort((a, b) => {
-      const farmCompare = String(a.farm_name ?? "").localeCompare(
-        String(b.farm_name ?? ""),
-      );
-      if (farmCompare !== 0) return farmCompare;
+    // Category filter
+    if (category && category !== "All") {
+      list = list.filter((p) => {
+        const apiCat = String(p.category_display ?? p.category ?? "").trim();
+        return apiCat.toLowerCase() === category.toLowerCase();
+      });
+    }
 
-      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
-    });
-  } else {
-    list.sort((a, b) => compareProducts(a, b, sortValue));
-  }
+    // Location filter
+    if (selectedLocation && selectedLocation !== "All") {
+      const want = selectedLocation.toLowerCase();
+      list = list.filter((p) => {
+        const loc = getProductLocationLabel(p).toLowerCase();
+        return loc === want;
+      });
+    }
 
-  const filtersBadgeHTML = `
+    // Sort
+    if (sortValue === "favorites") {
+      list.sort((a, b) => {
+        const farmCompare = String(a.farm_name ?? "").localeCompare(
+          String(b.farm_name ?? ""),
+        );
+        if (farmCompare !== 0) return farmCompare;
+
+        return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+      });
+    } else {
+      list.sort((a, b) => compareProducts(a, b, sortValue));
+    }
+
+    const filtersBadgeHTML = `
     <div class="d-flex flex-wrap gap-1 justify-content-center my-1">
       ${sortValue === "favorites" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="favorites">Favorite Farms</span>` : ""}
       ${category !== "all" && category !== "All" ? `<span class="badge rounded-pill cc-filter-badge" data-reset="category">${category}</span>` : ""}
@@ -886,21 +886,23 @@ function render() {
     </div>
   `;
 
-  const emptyStateHtml =
-    sortValue === "favorites"
-      ? `
+    const emptyStateHtml =
+      sortValue === "favorites"
+        ? `
         <div class="alert alert-info mb-0">
           <div class="fw-bold">No products from favorite farms found.</div>
           <div class="small mt-1">
-            ${CC.auth.isLoggedIn()
-              ? "Star a farm on a product card or switch to another sort."
-              : "Sign in and star a farm to use this filter."}
+            ${
+              CC.auth.isLoggedIn()
+                ? "Star a farm on a product card or switch to another sort."
+                : "Sign in and star a farm to use this filter."
+            }
           </div>
         </div>
       `
-      : renderEmptyState(q, category);
+        : renderEmptyState(q, category);
 
-  productsHostEl.innerHTML = `
+    productsHostEl.innerHTML = `
     <div class="cc-products-head">
       <small class="text-muted">Showing <b>${list.length}</b> of ${allProducts.length}</small>
       ${filtersBadgeHTML}
@@ -908,7 +910,7 @@ function render() {
     </div>
     ${list.length ? renderCards(list) : emptyStateHtml}
   `;
-}
+  }
 
   /* ==========================================================================
    * API LOADERS
@@ -950,11 +952,7 @@ function render() {
       applyInitialFarmFilterFromUrl();
       populateLocationOptions(allProducts);
 
-      CC.setStatus(
-        pageStatusEl,
-        ``,
-        "success",
-      );
+      CC.setStatus(pageStatusEl, ``, "success");
       render();
       await loadFavorites();
     } catch (err) {
@@ -1019,11 +1017,11 @@ function render() {
     if (farmEl) farmEl.addEventListener("change", render);
     if (locationEl) locationEl.addEventListener("change", render);
     const clearFiltersBtn = document.getElementById("clearFiltersBtn");
-    if (clearFiltersBtn) clearFiltersBtn.addEventListener("click", clearAllFilters);
+    if (clearFiltersBtn)
+      clearFiltersBtn.addEventListener("click", clearAllFilters);
     const clearFiltersBtnSm = document.getElementById("clearFiltersBtnSm");
-    if (clearFiltersBtnSm) clearFiltersBtnSm.addEventListener("click", clearAllFilters);  
-
-
+    if (clearFiltersBtnSm)
+      clearFiltersBtnSm.addEventListener("click", clearAllFilters);
 
     // ----- Product modal helpers -----
     const productModalEl = document.getElementById("productModal");
@@ -1039,8 +1037,6 @@ function render() {
         null
       );
     }
-
-
 
     function openProductModalFor(product) {
       if (!productModalEl || !productModal || !product) return;
@@ -1067,15 +1063,17 @@ function render() {
 
       const farmLogoUrl = String(
         product.farm_logo_url ??
-        product.logo_url ??
-        farmLookup?.logo_url ??
-        farmLookup?.logo ??
-        farmLookup?.image_url ??
-        ""
+          product.logo_url ??
+          farmLookup?.logo_url ??
+          farmLookup?.logo ??
+          farmLookup?.image_url ??
+          "",
       ).trim();
 
       const farmLogoEl = document.getElementById("productModalFarmLogo");
-      const farmLogoFallbackEl = document.getElementById("productModalFarmLogoFallback");
+      const farmLogoFallbackEl = document.getElementById(
+        "productModalFarmLogoFallback",
+      );
 
       const farmInitial = (farmRaw[0] || "F").toUpperCase();
       farmLogoFallbackEl.textContent = farmInitial;
@@ -1152,7 +1150,6 @@ function render() {
         qtyEl.removeAttribute("max");
       }
 
-
       productModal.show();
     }
 
@@ -1200,14 +1197,14 @@ function render() {
       // Header filter badge reset
       const badge = e.target.closest?.(".cc-filter-badge");
       if (badge) {
-      const type = badge.dataset.reset;
+        const type = badge.dataset.reset;
 
-      if (type === "category" && categoryEl) categoryEl.value = "All";
-      if (type === "farm" && farmEl) farmEl.value = "all";
-      if (type === "location" && locationEl) locationEl.value = "All";
+        if (type === "category" && categoryEl) categoryEl.value = "All";
+        if (type === "farm" && farmEl) farmEl.value = "all";
+        if (type === "location" && locationEl) locationEl.value = "All";
 
-      render();
-      return;
+        render();
+        return;
       }
 
       const addBtn = e.target.closest?.("[data-add]");
@@ -1308,11 +1305,7 @@ function render() {
           } else {
             favoriteFarmIdSet.add(farmId);
             if (farmName) favoriteFarmNames.push(farmName);
-            CC.setStatus(
-              pageStatusEl,
-              ``,
-              "success",
-            );
+            CC.setStatus(pageStatusEl, ``, "success");
           }
 
           renderDailyPicksFavorites();

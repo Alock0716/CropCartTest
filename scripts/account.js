@@ -57,8 +57,12 @@
   const addrCityEl = document.getElementById("addrCity");
   const addrStateEl = document.getElementById("addrState");
   const addrZipEl = document.getElementById("addrZip");
-  const deliveryAddressBadgeEl = document.getElementById("deliveryAddressBadge");
-  const deliveryAddressBadgeNoteEl = document.getElementById("deliveryAddressBadgeNote");
+  const deliveryAddressBadgeEl = document.getElementById(
+    "deliveryAddressBadge",
+  );
+  const deliveryAddressBadgeNoteEl = document.getElementById(
+    "deliveryAddressBadgeNote",
+  );
 
   // Favorites
   const refreshFavoritesBtn = document.getElementById("refreshFavoritesBtn");
@@ -69,7 +73,9 @@
   const providerBoxEl = document.getElementById("providerBox");
   const stripeBoxEl = document.getElementById("stripeBox");
   const providerSectionEl = document.getElementById("providerSection");
-  const accountFarmerNavItemEl = document.getElementById("accountFarmerNavItem");
+  const accountFarmerNavItemEl = document.getElementById(
+    "accountFarmerNavItem",
+  );
 
   // Security
   const passwordResetForm = document.getElementById("passwordResetForm");
@@ -131,26 +137,26 @@
   }
 
   /**
- * Favorites -> Shop handoff:
- * Store selected farm in sessionStorage so index.html can apply it even if
- * query params get stripped by hosting/routing.
- */
-function wireFavoriteShopHandoff() {
-  if (!favoritesListEl) return;
+   * Favorites -> Shop handoff:
+   * Store selected farm in sessionStorage so index.html can apply it even if
+   * query params get stripped by hosting/routing.
+   */
+  function wireFavoriteShopHandoff() {
+    if (!favoritesListEl) return;
 
-  favoritesListEl.addEventListener("click", (e) => {
-    const btn = e.target?.closest?.(".js-shop-farm");
-    if (!btn) return;
+    favoritesListEl.addEventListener("click", (e) => {
+      const btn = e.target?.closest?.(".js-shop-farm");
+      if (!btn) return;
 
-    const farmName = String(btn.dataset.farm || "").trim();
-    if (!farmName) return;
+      const farmName = String(btn.dataset.farm || "").trim();
+      if (!farmName) return;
 
-    sessionStorage.setItem("cc_store_prefarm", farmName);
-    // allow navigation to continue normally
-  });
-}
+      sessionStorage.setItem("cc_store_prefarm", farmName);
+      // allow navigation to continue normally
+    });
+  }
 
-wireFavoriteShopHandoff();
+  wireFavoriteShopHandoff();
 
   /**
    * Attempt to update the user's email.
@@ -193,7 +199,7 @@ wireFavoriteShopHandoff();
     localStorage.setItem(key, JSON.stringify(value));
   }
 
-    function buildAddressString(addressObj) {
+  function buildAddressString(addressObj) {
     if (!addressObj) return "";
 
     return [
@@ -225,7 +231,9 @@ wireFavoriteShopHandoff();
   }
 
   function normalizeState(state) {
-    return String(state || "").trim().toUpperCase();
+    return String(state || "")
+      .trim()
+      .toUpperCase();
   }
 
   function normalizeCity(city) {
@@ -240,7 +248,9 @@ wireFavoriteShopHandoff();
     if (!addressObj) return "";
 
     return [
-      String(addressObj.address_line1 || addressObj.street_address || "").trim(),
+      String(
+        addressObj.address_line1 || addressObj.street_address || "",
+      ).trim(),
       String(addressObj.city || "").trim(),
       String(addressObj.state || "").trim(),
       String(addressObj.postal_code || addressObj.zip || "").trim(),
@@ -252,14 +262,16 @@ wireFavoriteShopHandoff();
 
   function buildLookupCandidates(addressObj) {
     const street = normalizeStreet(
-      addressObj?.address_line1 || addressObj?.street_address || ""
+      addressObj?.address_line1 || addressObj?.street_address || "",
     );
     const city = normalizeCity(addressObj?.city || "");
     const state = normalizeState(addressObj?.state || "");
     const zip = normalizeZip(addressObj?.postal_code || addressObj?.zip || "");
     const country = String(addressObj?.country || "US").trim();
 
-    const whole = [street, city, state, zip, country].filter(Boolean).join(", ");
+    const whole = [street, city, state, zip, country]
+      .filter(Boolean)
+      .join(", ");
 
     return [
       {
@@ -351,7 +363,7 @@ wireFavoriteShopHandoff();
         setInlineStatus(
           addressModalStatusEl,
           `Checking address lookup: ${candidate.label}…`,
-          "muted"
+          "muted",
         );
 
         const result = await runGeocodeQuery(candidate.query);
@@ -368,7 +380,7 @@ wireFavoriteShopHandoff();
     }
 
     throw new Error(
-      "Could not find coordinates for that address after trying multiple address formats."
+      "Could not find coordinates for that address after trying multiple address formats.",
     );
   }
 
@@ -402,8 +414,16 @@ wireFavoriteShopHandoff();
     };
 
     const candidates = [
-      { path: "/auth/profile/delivery-address/", method: "PATCH", json: payloadSnake },
-      { path: "/auth/profile/delivery-address/", method: "PATCH", json: payloadCamel },
+      {
+        path: "/auth/profile/delivery-address/",
+        method: "PATCH",
+        json: payloadSnake,
+      },
+      {
+        path: "/auth/profile/delivery-address/",
+        method: "PATCH",
+        json: payloadCamel,
+      },
     ];
 
     let lastRes = null;
@@ -488,9 +508,14 @@ wireFavoriteShopHandoff();
     };
   }
 
-    function getAddressFromAuth(auth) {
+  function getAddressFromAuth(auth) {
     const u =
-      auth?.user || auth?.data?.user || auth?.account || auth?.profile || auth || null;
+      auth?.user ||
+      auth?.data?.user ||
+      auth?.account ||
+      auth?.profile ||
+      auth ||
+      null;
 
     if (!u) return null;
 
@@ -505,7 +530,7 @@ wireFavoriteShopHandoff();
       country: String(u.country || "US").trim(),
 
       preferred_delivery_address: String(
-        u.preferred_delivery_address || u.preferredDeliveryAddress || ""
+        u.preferred_delivery_address || u.preferredDeliveryAddress || "",
       ).trim(),
 
       lat: Number.isFinite(lat) ? lat : null,
@@ -519,7 +544,8 @@ wireFavoriteShopHandoff();
       addressObj.postal_code;
 
     const hasPreferredAddress = !!addressObj.preferred_delivery_address;
-    const hasCoords = Number.isFinite(addressObj.lat) && Number.isFinite(addressObj.lng);
+    const hasCoords =
+      Number.isFinite(addressObj.lat) && Number.isFinite(addressObj.lng);
 
     if (!hasStructuredAddress && !hasPreferredAddress && !hasCoords) {
       return null;
@@ -556,7 +582,7 @@ wireFavoriteShopHandoff();
     }
 
     const preferred = String(
-      a.preferred_delivery_address || a.preferredDeliveryAddress || ""
+      a.preferred_delivery_address || a.preferredDeliveryAddress || "",
     ).trim();
 
     return preferred || "—";
@@ -571,7 +597,7 @@ wireFavoriteShopHandoff();
     `;
   }
 
-    /**
+  /**
    * Set the delivery-range badge shown on the account address card.
    *
    * @param {string} text - Badge label shown to the user
@@ -590,7 +616,8 @@ wireFavoriteShopHandoff();
               : "badge text-bg-light border";
 
       deliveryAddressBadgeEl.className = cls;
-      deliveryAddressBadgeEl.textContent = text || "Delivery status unavailable";
+      deliveryAddressBadgeEl.textContent =
+        text || "Delivery status unavailable";
     }
 
     if (deliveryAddressBadgeNoteEl) {
@@ -1009,7 +1036,9 @@ wireFavoriteShopHandoff();
 
     farmsLookup.forEach((farm) => {
       const id = Number(farm?.id ?? farm?.farm_id);
-      const name = String(farm?.name ?? farm?.farm_name ?? "").trim().toLowerCase();
+      const name = String(farm?.name ?? farm?.farm_name ?? "")
+        .trim()
+        .toLowerCase();
 
       if (Number.isFinite(id)) farmById.set(id, farm);
       if (name) farmByName.set(name, farm);
@@ -1024,14 +1053,14 @@ wireFavoriteShopHandoff();
           return {
             name,
             logo_url: String(
-              lookup?.logo_url ?? lookup?.logo ?? lookup?.image_url ?? ""
+              lookup?.logo_url ?? lookup?.logo ?? lookup?.image_url ?? "",
             ).trim(),
           };
         }
 
         const id = Number(f?.id ?? f?.farm_id ?? f?.farm?.id);
         const name = String(
-          f?.farm_name ?? f?.farm?.farm_name ?? f?.farm?.name ?? f?.name ?? ""
+          f?.farm_name ?? f?.farm?.farm_name ?? f?.farm?.name ?? f?.name ?? "",
         ).trim();
 
         const lookup =
@@ -1043,11 +1072,11 @@ wireFavoriteShopHandoff();
           name,
           logo_url: String(
             f?.logo_url ??
-            f?.farm?.logo_url ??
-            lookup?.logo_url ??
-            lookup?.logo ??
-            lookup?.image_url ??
-            ""
+              f?.farm?.logo_url ??
+              lookup?.logo_url ??
+              lookup?.logo ??
+              lookup?.image_url ??
+              "",
           ).trim(),
         };
       })
@@ -1063,7 +1092,7 @@ wireFavoriteShopHandoff();
               class="cc-farm-logo-thumb"
               loading="lazy"
               onerror="this.outerHTML='<div class=&quot;cc-farm-logo-fallback&quot;>${CC.escapeHtml(
-                (farm.name[0] || "F").toUpperCase()
+                (farm.name[0] || "F").toUpperCase(),
               )}</div>'"
             />
           `
@@ -1094,7 +1123,6 @@ wireFavoriteShopHandoff();
         `;
       })
       .join("");
-  
   }
 
   function detectOwnedFarm(farms) {
@@ -1332,7 +1360,7 @@ wireFavoriteShopHandoff();
         prefillAddressModal(localAddr);
       });
 
-        addressForm?.addEventListener("submit", async (e) => {
+    addressForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const basePayload = {
@@ -1371,7 +1399,8 @@ wireFavoriteShopHandoff();
 
         const fullPayload = {
           ...basePayload,
-          preferred_delivery_address: geo.display_name || buildAddressString(basePayload),
+          preferred_delivery_address:
+            geo.display_name || buildAddressString(basePayload),
           lat: geo.lat,
           lng: geo.lng,
         };
@@ -1566,12 +1595,10 @@ wireFavoriteShopHandoff();
     prefillAddressModal(inferred);
 
     // Load favorites + provider info
-    
 
     if (isProviderAccount()) {
       await Promise.allSettled([loadFavorites(), loadProviderInfo(username)]);
-    }
-    else await Promise.allSettled([loadFavorites()]);
+    } else await Promise.allSettled([loadFavorites()]);
 
     wireEvents(userKey, username, email);
     setPageStatus("", "success");

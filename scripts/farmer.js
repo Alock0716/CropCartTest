@@ -62,7 +62,9 @@
 
   // Orders
   const farmerOrdersBody = document.getElementById("farmerOrdersBody");
-  const refreshFarmerOrdersBtn = document.getElementById("refreshFarmerOrdersBtn");
+  const refreshFarmerOrdersBtn = document.getElementById(
+    "refreshFarmerOrdersBtn",
+  );
 
   // Add product
   const addProductForm = document.getElementById("addProductForm");
@@ -234,13 +236,20 @@
 
   function authHeaders(extra = {}) {
     const token = getAccessToken();
-    return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+    return token
+      ? { ...extra, Authorization: `Bearer ${token}` }
+      : { ...extra };
   }
 
   async function readJsonOrText(res) {
     const raw = await res.text();
     try {
-      return { ok: res.ok, status: res.status, data: raw ? JSON.parse(raw) : null, raw };
+      return {
+        ok: res.ok,
+        status: res.status,
+        data: raw ? JSON.parse(raw) : null,
+        raw,
+      };
     } catch {
       return { ok: res.ok, status: res.status, data: null, raw };
     }
@@ -253,7 +262,9 @@
   function renderInventory() {
     if (!inventoryBody) return;
 
-    const q = String(invSearch?.value || "").trim().toLowerCase();
+    const q = String(invSearch?.value || "")
+      .trim()
+      .toLowerCase();
     const list = inventory.filter((p) => {
       const name = String(p?.name ?? "").toLowerCase();
       return !q || name.includes(q);
@@ -262,8 +273,7 @@
     inventoryBody.innerHTML = "";
 
     if (!list.length) {
-      inventoryBody.innerHTML =
-        `<tr><td colspan="5" class="text-muted small py-4">No inventory found.</td></tr>`;
+      inventoryBody.innerHTML = `<tr><td colspan="5" class="text-muted small py-4">No inventory found.</td></tr>`;
       return;
     }
 
@@ -294,7 +304,9 @@
 
   function findProductById(productId) {
     return (
-      inventory.find((p) => String(p?.id ?? p?.product_id) === String(productId)) || null
+      inventory.find(
+        (p) => String(p?.id ?? p?.product_id) === String(productId),
+      ) || null
     );
   }
 
@@ -308,8 +320,7 @@
     farmerOrdersBody.innerHTML = "";
 
     if (!orders.length) {
-      farmerOrdersBody.innerHTML =
-        `<tr><td colspan="4" class="text-muted small py-4">No orders found.</td></tr>`;
+      farmerOrdersBody.innerHTML = `<tr><td colspan="4" class="text-muted small py-4">No orders found.</td></tr>`;
       return;
     }
 
@@ -372,7 +383,8 @@
       const logoUrl = String(ownedFarm?.logo_url || "").trim();
 
       if (name) {
-        if (farmerPortalTitle) farmerPortalTitle.textContent = `${name}'s Farmer Portal`;
+        if (farmerPortalTitle)
+          farmerPortalTitle.textContent = `${name}'s Farmer Portal`;
         document.title = `${name} | Farmer Portal`;
       }
 
@@ -413,7 +425,11 @@
       const parsed = await readJsonOrText(res);
 
       if (!parsed.ok) {
-        console.log("Farm logo upload error:", parsed.status, parsed.data ?? parsed.raw);
+        console.log(
+          "Farm logo upload error:",
+          parsed.status,
+          parsed.data ?? parsed.raw,
+        );
 
         setFarmLogoStatus(
           parsed.data?.error ||
@@ -469,7 +485,9 @@
       return;
     }
 
-    inventory = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
+    inventory = Array.isArray(parsed.data)
+      ? parsed.data
+      : parsed.data?.results || [];
     renderInventory();
     setStatus("", "success");
   }
@@ -499,7 +517,9 @@
       return;
     }
 
-    orders = Array.isArray(parsed.data) ? parsed.data : parsed.data?.results || [];
+    orders = Array.isArray(parsed.data)
+      ? parsed.data
+      : parsed.data?.results || [];
     renderOrders();
     setStatus("", "success");
   }
@@ -533,7 +553,11 @@
       const parsed = await readJsonOrText(res);
 
       if (!parsed.ok) {
-        console.log("Create product error:", parsed.status, parsed.data ?? parsed.raw);
+        console.log(
+          "Create product error:",
+          parsed.status,
+          parsed.data ?? parsed.raw,
+        );
 
         const msg =
           parsed.data?.error ||
@@ -550,7 +574,10 @@
       await loadInventory();
     } catch (err) {
       console.error("Create product fetch failed:", err);
-      setStatus("Product creation failed before the response could be read.", "danger");
+      setStatus(
+        "Product creation failed before the response could be read.",
+        "danger",
+      );
     } finally {
       if (addProductBtn) addProductBtn.disabled = false;
     }
@@ -561,17 +588,27 @@
 
     setEditStatus("Saving changes…", "muted");
 
-    const res = await fetch(`${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/`, {
-      method: "PATCH",
-      headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
-      credentials: "include",
-      body: JSON.stringify(payload),
-    });
+    const res = await fetch(
+      `${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/`,
+      {
+        method: "PATCH",
+        headers: authHeaders({
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        }),
+        credentials: "include",
+        body: JSON.stringify(payload),
+      },
+    );
 
     const parsed = await readJsonOrText(res);
 
     if (!parsed.ok) {
-      console.log("Update product error:", parsed.status, parsed.data ?? parsed.raw);
+      console.log(
+        "Update product error:",
+        parsed.status,
+        parsed.data ?? parsed.raw,
+      );
       setEditStatus(`Save failed (HTTP ${parsed.status})`, "danger");
       return;
     }
@@ -601,7 +638,11 @@
     const parsed = await readJsonOrText(res);
 
     if (!parsed.ok) {
-      console.log("Delete product error:", parsed.status, parsed.data ?? parsed.raw);
+      console.log(
+        "Delete product error:",
+        parsed.status,
+        parsed.data ?? parsed.raw,
+      );
       setStatus(`Delete failed (HTTP ${parsed.status})`, "danger");
       return;
     }
@@ -615,16 +656,23 @@
 
     setStatus("Confirming order…", "muted");
 
-    const res = await fetch(`${ROOT_BASE}/farmer/orders/${encodeURIComponent(orderId)}/confirm/`, {
-      method: "PUT",
-      headers: authHeaders({ Accept: "application/json" }),
-      credentials: "include",
-    });
+    const res = await fetch(
+      `${ROOT_BASE}/farmer/orders/${encodeURIComponent(orderId)}/confirm/`,
+      {
+        method: "PUT",
+        headers: authHeaders({ Accept: "application/json" }),
+        credentials: "include",
+      },
+    );
 
     const parsed = await readJsonOrText(res);
 
     if (!parsed.ok) {
-      console.log("Confirm order error:", parsed.status, parsed.data ?? parsed.raw);
+      console.log(
+        "Confirm order error:",
+        parsed.status,
+        parsed.data ?? parsed.raw,
+      );
 
       const msg =
         parsed.data?.error ||
@@ -658,7 +706,8 @@
     });
 
     const parsed = await readJsonOrText(res);
-    if (!parsed.ok) throw new Error(`Stripe status failed (HTTP ${parsed.status})`);
+    if (!parsed.ok)
+      throw new Error(`Stripe status failed (HTTP ${parsed.status})`);
 
     return parsed.data;
   }
@@ -672,10 +721,12 @@
     });
 
     const parsed = await readJsonOrText(res);
-    if (!parsed.ok) throw new Error(`Stripe dashboard link failed (HTTP ${parsed.status})`);
+    if (!parsed.ok)
+      throw new Error(`Stripe dashboard link failed (HTTP ${parsed.status})`);
 
     const url = parsed.data?.url;
-    if (!url) throw new Error("Stripe dashboard endpoint did not return {url}.");
+    if (!url)
+      throw new Error("Stripe dashboard endpoint did not return {url}.");
     return String(url);
   }
 
@@ -683,16 +734,21 @@
     // POST /farmer/stripe/account  -> { url, stripe_account_id }
     const res = await fetch(`${ROOT_BASE}/farmer/stripe/account`, {
       method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json", Accept: "application/json" }),
+      headers: authHeaders({
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      }),
       credentials: "include",
       body: JSON.stringify({}), // backend can ignore; safe default
     });
 
     const parsed = await readJsonOrText(res);
-    if (!parsed.ok) throw new Error(`Stripe connection link failed (HTTP ${parsed.status})`);
+    if (!parsed.ok)
+      throw new Error(`Stripe connection link failed (HTTP ${parsed.status})`);
 
     const url = parsed.data?.url;
-    if (!url) throw new Error("Stripe account create endpoint did not return {url}.");
+    if (!url)
+      throw new Error("Stripe account create endpoint did not return {url}.");
     return String(url);
   }
 
@@ -718,7 +774,10 @@
       if (connected) {
         connectStripeBtn.textContent = "Open Stripe (finish setup)";
         connectStripeBtn.dataset.mode = "connect";
-        setStripeStatus("Stripe connected, but setup may be incomplete.", "warning");
+        setStripeStatus(
+          "Stripe connected, but setup may be incomplete.",
+          "warning",
+        );
         return;
       }
 
@@ -770,7 +829,8 @@
     const mode = String(params.get("stripe") || "").toLowerCase();
     if (!mode || (mode !== "return" && mode !== "refresh")) return;
 
-    const endpoint = mode === "return" ? "/farmer/stripe/return/" : "/farmer/stripe/refresh/";
+    const endpoint =
+      mode === "return" ? "/farmer/stripe/return/" : "/farmer/stripe/refresh/";
 
     try {
       const res = await fetch(`${ROOT_BASE}${endpoint}`, {
@@ -786,11 +846,20 @@
       const message = String(parsed.data?.message || "");
 
       if (mode === "return") {
-        setStripeStatus(status ? `Stripe: ${status}` : "Stripe return received.", "success");
+        setStripeStatus(
+          status ? `Stripe: ${status}` : "Stripe return received.",
+          "success",
+        );
         setStatus("Stripe return received. Refreshing…", "success");
       } else {
-        setStripeStatus(message || "Stripe link expired. Request a new link.", "warning");
-        setStatus(message || "Stripe link expired. Request a new link.", "warning");
+        setStripeStatus(
+          message || "Stripe link expired. Request a new link.",
+          "warning",
+        );
+        setStatus(
+          message || "Stripe link expired. Request a new link.",
+          "warning",
+        );
       }
 
       await refreshStripeUi();
@@ -837,7 +906,8 @@
         if (epCategory) epCategory.value = String(p?.category ?? "");
         if (epPrice) epPrice.value = String(p?.price ?? "");
         if (epStock) epStock.value = String(p?.stock ?? p?.quantity ?? "");
-        if (epIsActive) epIsActive.checked = Boolean(p?.is_active ?? p?.active ?? true);
+        if (epIsActive)
+          epIsActive.checked = Boolean(p?.is_active ?? p?.active ?? true);
 
         if (epCurrentPhoto) {
           const url = String(p?.photo_url ?? "");
@@ -964,12 +1034,19 @@
     await handleStripeCallbackHints();
 
     // Load portal data
-    await Promise.allSettled([loadInventory(), loadOrders(), refreshStripeUi()]);
+    await Promise.allSettled([
+      loadInventory(),
+      loadOrders(),
+      refreshStripeUi(),
+    ]);
   }
 
   // Kick off
   init().catch((err) => {
     console.error("FarmerPortal init failed:", err);
-    setStatus("Farmer portal failed to initialize. Check console for details.", "danger");
+    setStatus(
+      "Farmer portal failed to initialize. Check console for details.",
+      "danger",
+    );
   });
 })();

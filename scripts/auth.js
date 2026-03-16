@@ -138,11 +138,7 @@
         try {
           const result = await CC.cartCache.syncGuestCartToServer();
           if (result?.attempted) {
-            CC.setStatus(
-              statusEl,
-              ``,
-              "success",
-            );
+            CC.setStatus(statusEl, ``, "success");
           }
         } catch {
           // Do not fail login if sync fails
@@ -257,8 +253,12 @@
 
     const statusEl = document.getElementById("pageStatus");
     const btn = document.getElementById("farmerRegisterBtn");
-    const sellsCertifiedGoodsEl = document.getElementById("sellsCertifiedGoods");
-    const certificateUploadWrapEl = document.getElementById("certificateUploadWrap");
+    const sellsCertifiedGoodsEl = document.getElementById(
+      "sellsCertifiedGoods",
+    );
+    const certificateUploadWrapEl = document.getElementById(
+      "certificateUploadWrap",
+    );
     const certificateFileEl = document.getElementById("certificateFile");
 
     function syncCertificateVisibility() {
@@ -271,7 +271,10 @@
       }
     }
 
-    sellsCertifiedGoodsEl?.addEventListener("change", syncCertificateVisibility);
+    sellsCertifiedGoodsEl?.addEventListener(
+      "change",
+      syncCertificateVisibility,
+    );
     syncCertificateVisibility();
 
     form.addEventListener("submit", async (e) => {
@@ -297,8 +300,9 @@
       // --- Extra provider fields ---
       const phone =
         document.getElementById("providerPhone")?.value?.trim() || "";
-      const sells_certified_goods =
-        !!document.getElementById("sellsCertifiedGoods")?.checked;
+      const sells_certified_goods = !!document.getElementById(
+        "sellsCertifiedGoods",
+      )?.checked;
       const certificateFile =
         document.getElementById("certificateFile")?.files?.[0] || null;
 
@@ -336,13 +340,14 @@
         formData.append("password", password);
         formData.append("farm_name", farm_name);
 
-        if (farm_description) formData.append("farm_description", farm_description);
+        if (farm_description)
+          formData.append("farm_description", farm_description);
         if (farm_location) formData.append("farm_location", farm_location);
         if (phone) formData.append("phone", phone);
 
         formData.append(
           "sells_certified_goods",
-          sells_certified_goods ? "true" : "false"
+          sells_certified_goods ? "true" : "false",
         );
 
         if (certificateFile) {
@@ -383,11 +388,7 @@
           if (regInput) regInput.value = String(regId);
         }
 
-        CC.setStatus(
-          statusEl,
-          ``,
-          "success",
-        );
+        CC.setStatus(statusEl, ``, "success");
 
         // Optional: clear password fields after submit
         document.getElementById("providerPassword").value = "";
@@ -592,11 +593,7 @@
           return;
         }
 
-        CC.setStatus(
-          statusEl,
-          "",
-          "success",
-        );
+        CC.setStatus(statusEl, "", "success");
         setTimeout(() => (window.location.href = "login.html"), 800);
       } catch (err) {
         CC.setStatus(
