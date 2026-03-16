@@ -102,32 +102,6 @@
     return `${base}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
   }
 
-  /**
-   * ============================================================
-   * calculateServiceFee
-   * ------------------------------------------------------------
-   * Calculates the service fee for a product based on category
-   *
-   * @param {number} price - price of item
-   * @param {string} category - product category
-   * @returns {number} fee amount
-   * ============================================================
-  */
-  function calculateServiceFee(price, category) {
-
-    const config = window.__CROPCART_CONFIG__;
-
-    // lookup fee percentage for category
-    const rate =
-      config.SERVICE_FEES?.[category?.toLowerCase()] ??
-      config.SERVICE_FEES?.default ??
-      0;
-
-    return price * rate;
-  }
-
-  window.CC.calculateServiceFee = calculateServiceFee;
-
   /* ==========================================================================
    * DOM HELPERS
    * ========================================================================== */
