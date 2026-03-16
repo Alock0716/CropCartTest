@@ -903,3 +903,45 @@ body .cc-muted {
 .cc-product-modal-farm-logo-wrap {
   flex-shrink: 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Provider ownership card                                                     */
+/* -------------------------------------------------------------------------- */
+
+.cc-provider-farm-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 6px 2px;
+}
+
+.cc-provider-farm-card__media {
+  flex-shrink: 0;
+}
+
+.cc-provider-farm-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+}
+
+.cc-provider-farm-card__content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cc-provider-farm-card__eyebrow {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cc-muted);
+  margin-bottom: 4px;
+}
+
+.cc-provider-farm-card__title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--cc-ink);
+  line-height: 1.2;
+}

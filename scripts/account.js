@@ -1102,11 +1102,60 @@ wireFavoriteShopHandoff();
     }
 
     // Inline styles removed (moved to CSS classes)
+    const ownedLogoUrl = String(
+      owned?.f?.logo_url ?? owned?.f?.logo ?? owned?.f?.image_url ?? ""
+    ).trim();
+
+    const ownedLogoHtml = ownedLogoUrl
+      ? `
+        <img
+          src="${CC.escapeHtml(ownedLogoUrl)}"
+          alt="${CC.escapeHtml(owned.name)} logo"
+          class="cc-farm-logo-thumb cc-provider-farm-logo"
+          loading="lazy"
+          onerror="this.outerHTML='<div class=&quot;cc-farm-logo-fallback cc-provider-farm-logo&quot;>${CC.escapeHtml(
+            (owned.name?.[0] || "F").toUpperCase()
+          )}</div>'"
+        />
+      `
+      : `
+        <div class="cc-farm-logo-fallback cc-provider-farm-logo">
+          ${CC.escapeHtml((owned.name?.[0] || "F").toUpperCase())}
+        </div>
+      `;
+
     providerBoxEl.innerHTML = `
-      <div class="fw-semibold">
-        <h3>You are the owner of: ${CC.escapeHtml(owned.name)}<h3>
-        <p class="cc-provider-meta">${CC.escapeHtml(owned.f.description)}</p>
-        <p class="cc-provider-meta"> Located in: ${CC.escapeHtml(owned.f.location)}</p>
+      <div class="cc-provider-farm-card">
+        <div class="cc-provider-farm-card__media">
+          ${ownedLogoHtml}
+        </div>
+
+        <div class="cc-provider-farm-card__content">
+          <div class="cc-provider-farm-card__eyebrow">You are the owner of</div>
+          <h3 class="cc-provider-farm-card__title mb-1">
+            ${CC.escapeHtml(owned.name)}
+          </h3>
+
+          ${
+            owned?.f?.description
+              ? `
+                <p class="cc-provider-meta mb-2">
+                  ${CC.escapeHtml(owned.f.description)}
+                </p>
+              `
+              : ``
+          }
+
+          ${
+            owned?.f?.location
+              ? `
+                <p class="cc-provider-meta mb-0">
+                  Located in: ${CC.escapeHtml(owned.f.location)}
+                </p>
+              `
+              : ``
+          }
+        </div>
       </div>
     `;
   }
