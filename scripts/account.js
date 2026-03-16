@@ -953,31 +953,104 @@ wireFavoriteShopHandoff();
       return;
     }
 
-    // Support a few shapes:
-    // - ["Farm A", "Farm B"]
-    // - [{farm_name:"..."}, {farm:"..."}]
-    const names = favorites
-      .map((f) => {
-        if (typeof f === "string") return f;
-        return f?.farm_name ?? f?.farm ?? f?.name ?? "";
-      })
-      .map((s) => String(s || "").trim())
-      .filter(Boolean);
+    let farmsLookup = [];
+    try {
+      const farmsRes = await apiGetFarms();
+      if (farmsRes.ok && Array.isArray(farmsRes.data)) {
+        farmsLookup = farmsRes.data;
+      }
+    } catch {
+      farmsLookup = [];
+    }
 
-    favoritesListEl.innerHTML = names
-      .map((name) => {
+    const farmById = new Map();
+    const farmByName = new Map();
+
+    farmsLookup.forEach((farm) => {
+      const id = Number(farm?.id ?? farm?.farm_id);
+      const name = String(farm?.name ?? farm?.farm_name ?? "").trim().toLowerCase();
+
+      if (Number.isFinite(id)) farmById.set(id, farm);
+      if (name) farmByName.set(name, farm);
+    });
+
+    const favoriteRows = favorites
+      .map((f) => {
+        if (typeof f === "string") {
+          const name = String(f).trim();
+          const lookup = farmByName.get(name.toLowerCase()) || null;
+
+          return {
+            name,
+            logo_url: String(
+              lookup?.logo_url ?? lookup?.logo ?? lookup?.image_url ?? ""
+            ).trim(),
+          };
+        }
+
+        const id = Number(f?.id ?? f?.farm_id ?? f?.farm?.id);
+        const name = String(
+          f?.farm_name ?? f?.farm?.farm_name ?? f?.farm?.name ?? f?.name ?? ""
+        ).trim();
+
+        const lookup =
+          (Number.isFinite(id) ? farmById.get(id) : null) ||
+          farmByName.get(name.toLowerCase()) ||
+          null;
+
+        return {
+          name,
+          logo_url: String(
+            f?.logo_url ??
+            f?.farm?.logo_url ??
+            lookup?.logo_url ??
+            lookup?.logo ??
+            lookup?.image_url ??
+            ""
+          ).trim(),
+        };
+      })
+      .filter((row) => row.name);
+
+    favoritesListEl.innerHTML = favoriteRows
+      .map((farm) => {
+        const logoHtml = farm.logo_url
+          ? `
+            <img
+              src="${CC.escapeHtml(farm.logo_url)}"
+              alt="${CC.escapeHtml(farm.name)} logo"
+              class="cc-farm-logo-thumb"
+              loading="lazy"
+              onerror="this.outerHTML='<div class=&quot;cc-farm-logo-fallback&quot;>${CC.escapeHtml(
+                (farm.name[0] || "F").toUpperCase()
+              )}</div>'"
+            />
+          `
+          : `
+            <div class="cc-farm-logo-fallback">
+              ${CC.escapeHtml((farm.name[0] || "F").toUpperCase())}
+            </div>
+          `;
+
         return `
-        <div class="d-flex align-items-center justify-content-between border rounded-4 bg-white p-3">
-          <div class="fw-semibold">${CC.escapeHtml(name)}</div>
-          <a
-            class="btn cc-btn-outline btn-sm js-shop-farm"
-            href="index.html?farm=${encodeURIComponent(name)}"
-            data-farm="${CC.escapeHtml(name)}"
-          >
-            Shop
-          </a>
-        </div>
-      `;
+          <div class="cc-account-favorite-card">
+            <div class="cc-account-favorite-card__left">
+              <div class="cc-account-favorite-card__media">
+                ${logoHtml}
+              </div>
+
+              <div class="fw-semibold">${CC.escapeHtml(farm.name)}</div>
+            </div>
+
+            <a
+              class="btn cc-btn-outline btn-sm js-shop-farm"
+              href="index.html?farm=${encodeURIComponent(farm.name)}"
+              data-farm="${CC.escapeHtml(farm.name)}"
+            >
+              Shop
+            </a>
+          </div>
+        `;
       })
       .join("");
   

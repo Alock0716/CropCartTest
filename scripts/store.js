@@ -316,7 +316,8 @@
     if (!favoriteFarmsHostEl) return;
 
     if (!CC.auth.isLoggedIn()) {
-      favoriteFarmsHostEl.innerHTML = `<div class="text-muted small">Sign in and favorite some farms to see them listed here.</div>`;
+      favoriteFarmsHostEl.innerHTML =
+        `<div class="text-muted small">Sign in and favorite some farms to see them listed here.</div>`;
       return;
     }
 
@@ -325,7 +326,8 @@
     );
 
     if (!names.length) {
-      favoriteFarmsHostEl.innerHTML = `<div class="text-muted small">No favorites yet — star a farm on a product card.</div>`;
+      favoriteFarmsHostEl.innerHTML =
+        `<div class="text-muted small">No favorites yet — star a farm on a product card.</div>`;
       return;
     }
 
@@ -334,36 +336,66 @@
         const farmKey = normalizeFarmKey(name);
         const farmId = farmIdByNameMap.get(farmKey);
         const canRemove = Number.isFinite(Number(farmId));
+        const farmRow = Number.isFinite(Number(farmId))
+          ? farmByIdMap.get(Number(farmId))
+          : null;
+
+        const logoUrl = String(
+          farmRow?.logo_url ?? farmRow?.logo ?? farmRow?.image_url ?? ""
+        ).trim();
+
+        const logoHtml = logoUrl
+          ? `
+            <img
+              src="${CC.escapeHtml(logoUrl)}"
+              alt="${CC.escapeHtml(name)} logo"
+              class="cc-farm-logo-thumb"
+              loading="lazy"
+              onerror="this.outerHTML='<div class=&quot;cc-farm-logo-fallback&quot;>${CC.escapeHtml(
+                (name[0] || "F").toUpperCase()
+              )}</div>'"
+            />
+          `
+          : `
+            <div class="cc-farm-logo-fallback">
+              ${CC.escapeHtml((name[0] || "F").toUpperCase())}
+            </div>
+          `;
 
         return `
-          <div class="d-flex align-items-center justify-content-between">
+          <div class="cc-favorite-farm-card">
             <button
               type="button"
-              class="cc-mini text-start col-sm-12 col-6"
+              class="cc-mini text-start w-100 cc-favorite-farm-card__main"
               data-farm-filter="${CC.escapeHtml(name)}"
               title="Filter products to ${CC.escapeHtml(name)}"
             >
-                <div>
-                  <div class="cc-mini-title">${CC.escapeHtml(name)}</div>
-                  <div class="cc-muted">Click to filter products</div>
-                </div>
-                ${
-                  canRemove
-                    ? `
-                      <button
-                        class="favorite-farm-btn-2 active"
-                        type="button"
-                        data-farm-id="${CC.escapeHtml(String(farmId))}"
-                        data-farm-name="${CC.escapeHtml(name)}"
-                        aria-label="Remove farm from favorites"
-                        title="Remove from favorites"
-                      >
-                        <i class="bi bi-star-fill"></i>
-                    `
-                    : ``
-                }
+              <div class="cc-favorite-farm-card__media">
+                ${logoHtml}
+              </div>
+
+              <div class="cc-favorite-farm-card__content">
+                <div class="cc-mini-title">${CC.escapeHtml(name)}</div>
+                <div class="cc-muted">Click to filter products</div>
               </div>
             </button>
+
+            ${
+              canRemove
+                ? `
+                  <button
+                    class="favorite-farm-btn-2 active cc-favorite-farm-card__star"
+                    type="button"
+                    data-farm-id="${CC.escapeHtml(String(farmId))}"
+                    data-farm-name="${CC.escapeHtml(name)}"
+                    aria-label="Remove farm from favorites"
+                    title="Remove from favorites"
+                  >
+                    <i class="bi bi-star-fill"></i>
+                  </button>
+                `
+                : ``
+            }
           </div>
         `;
       })
@@ -1027,6 +1059,44 @@ function render() {
       ).trim();
       const descRaw = String(product.description ?? "").trim();
       const stockRaw = product.stock ?? product.quantity ?? null;
+      const farmIdRaw = Number(product.farm_id ?? product.farm?.id);
+      const farmLookup =
+        (Number.isFinite(farmIdRaw) ? farmByIdMap.get(farmIdRaw) : null) ||
+        farmByNameMap.get(normalizeFarmKey(farmRaw)) ||
+        null;
+
+      const farmLogoUrl = String(
+        product.farm_logo_url ??
+        product.logo_url ??
+        farmLookup?.logo_url ??
+        farmLookup?.logo ??
+        farmLookup?.image_url ??
+        ""
+      ).trim();
+
+      const farmLogoEl = document.getElementById("productModalFarmLogo");
+      const farmLogoFallbackEl = document.getElementById("productModalFarmLogoFallback");
+
+      const farmInitial = (farmRaw[0] || "F").toUpperCase();
+      farmLogoFallbackEl.textContent = farmInitial;
+
+      if (farmLogoUrl) {
+        farmLogoEl.src = farmLogoUrl;
+        farmLogoEl.alt = `${farmRaw} logo`;
+        farmLogoEl.classList.remove("d-none");
+        farmLogoFallbackEl.classList.add("d-none");
+
+        farmLogoEl.onerror = () => {
+          farmLogoEl.src = "";
+          farmLogoEl.classList.add("d-none");
+          farmLogoFallbackEl.classList.remove("d-none");
+        };
+      } else {
+        farmLogoEl.src = "";
+        farmLogoEl.alt = "";
+        farmLogoEl.classList.add("d-none");
+        farmLogoFallbackEl.classList.remove("d-none");
+      }
 
       // Fill header
       document.getElementById("productModalTitle").textContent = nameRaw;

@@ -821,3 +821,85 @@ body .cc-muted {
   color: var(--cc-primary);
   padding: 8px;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Farm logo UI                                                                */
+/* -------------------------------------------------------------------------- */
+
+.cc-farm-logo-thumb,
+.cc-product-modal-farm-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 1px solid rgba(30, 91, 56, 0.16);
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(24, 48, 36, 0.08);
+  flex-shrink: 0;
+}
+
+.cc-farm-logo-fallback,
+.cc-product-modal-farm-logo-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(600px 250px at 20% 10%, rgba(47, 122, 77, 0.18), transparent 60%),
+    linear-gradient(135deg, rgba(30, 91, 56, 0.09), rgba(47, 122, 77, 0.06)),
+    var(--cc-cream-2);
+  border: 1px solid rgba(30, 91, 56, 0.16);
+  color: var(--cc-green);
+  font-weight: 900;
+  box-shadow: 0 6px 14px rgba(24, 48, 36, 0.08);
+  flex-shrink: 0;
+}
+
+.cc-favorite-farm-card,
+.cc-account-favorite-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cc-favorite-farm-card__main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 56px;
+}
+
+.cc-favorite-farm-card__media,
+.cc-account-favorite-card__media {
+  flex-shrink: 0;
+}
+
+.cc-favorite-farm-card__content,
+.cc-account-favorite-card__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cc-favorite-farm-card__star {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.cc-favorite-farm-card {
+  position: relative;
+}
+
+.cc-product-modal-farm-head {
+  padding: 10px 0 14px;
+  border-bottom: 1px solid rgba(30, 91, 56, 0.12);
+}
+
+.cc-product-modal-farm-logo-wrap {
+  flex-shrink: 0;
+}
