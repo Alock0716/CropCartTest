@@ -70,7 +70,8 @@
             <li class="nav-item">
               <a class="nav-link" href="cart.html">My Cart</a>
             </li>
-            <li class="nav-item">
+             <!-- Provider-only link -->
+            <li class="nav-item d-none" id="accountFarmerNavItem">
               <a class="nav-link" href="farmer.html">Farmer Portal</a>
             </li>
             <li class="nav-item">
@@ -253,9 +254,9 @@
         <!-- ===================================================== -->
         <div class="col-lg-5">
           <!-- ----------------------------------------------------- -->
-          <!-- Provider / Farm ownership                               -->
+          <!-- Provider / Farm ownership                             -->
           <!-- ----------------------------------------------------- -->
-          <section class="cc-card p-4 mb-4">
+          <section id="providerSection" class="cc-card p-4 mb-4 d-none">
             <h2 class="h5 fw-bold mb-3">Provider info</h2>
 
             <div id="providerBox">

@@ -68,6 +68,8 @@
   // Provider
   const providerBoxEl = document.getElementById("providerBox");
   const stripeBoxEl = document.getElementById("stripeBox");
+  const providerSectionEl = document.getElementById("providerSection");
+  const accountFarmerNavItemEl = document.getElementById("accountFarmerNavItem");
 
   // Security
   const passwordResetForm = document.getElementById("passwordResetForm");
@@ -88,6 +90,45 @@
   // ===========================================================================
   // Helpers
   // ===========================================================================
+  /**
+   * Check whether the signed-in account has the provider role.
+   *
+   * Uses the auth payload already cached by login/auth.js.
+   * This matches the same role gate already used by page.js for farmer.html.
+   *
+   * @returns {boolean}
+   */
+  function isProviderAccount() {
+    const auth = CC.auth?.getAuth?.();
+    return auth?.user?.role === "provider";
+  }
+
+  /**
+   * Show or hide provider-only UI on the account page.
+   *
+   * Affects:
+   * - The Farmer Portal navbar link on account.html
+   * - The owned-farm/provider info card on account.html
+   */
+  function syncProviderVisibility() {
+    const showProviderUi = isProviderAccount();
+
+    if (accountFarmerNavItemEl) {
+      accountFarmerNavItemEl.classList.toggle("d-none", !showProviderUi);
+    }
+
+    if (providerSectionEl) {
+      providerSectionEl.classList.toggle("d-none", !showProviderUi);
+    }
+
+    if (!showProviderUi && providerBoxEl) {
+      providerBoxEl.innerHTML = "";
+    }
+
+    if (!showProviderUi && stripeBoxEl) {
+      stripeBoxEl.textContent = "";
+    }
+  }
 
   /**
  * Favorites -> Shop handoff:
@@ -1068,11 +1109,11 @@ wireFavoriteShopHandoff();
 
   async function loadProviderInfo(username) {
     if (!providerBoxEl) return;
+    if (!isProviderAccount()) return;
 
     const res = await apiGetFarms();
 
     if (res.status === 401) {
-      // Some APIs allow farms unauth; if you require auth and it fails, just show a neutral message.
       providerBoxEl.innerHTML = `<div class="text-muted">Farm ownership check requires login.</div>`;
       return;
     }
@@ -1101,61 +1142,11 @@ wireFavoriteShopHandoff();
       return;
     }
 
-    // Inline styles removed (moved to CSS classes)
-    const ownedLogoUrl = String(
-      owned?.f?.logo_url ?? owned?.f?.logo ?? owned?.f?.image_url ?? ""
-    ).trim();
-
-    const ownedLogoHtml = ownedLogoUrl
-      ? `
-        <img
-          src="${CC.escapeHtml(ownedLogoUrl)}"
-          alt="${CC.escapeHtml(owned.name)} logo"
-          class="cc-farm-logo-thumb cc-provider-farm-logo"
-          loading="lazy"
-          onerror="this.outerHTML='<div class=&quot;cc-farm-logo-fallback cc-provider-farm-logo&quot;>${CC.escapeHtml(
-            (owned.name?.[0] || "F").toUpperCase()
-          )}</div>'"
-        />
-      `
-      : `
-        <div class="cc-farm-logo-fallback cc-provider-farm-logo">
-          ${CC.escapeHtml((owned.name?.[0] || "F").toUpperCase())}
-        </div>
-      `;
-
     providerBoxEl.innerHTML = `
-      <div class="cc-provider-farm-card">
-        <div class="cc-provider-farm-card__media">
-          ${ownedLogoHtml}
-        </div>
-
-        <div class="cc-provider-farm-card__content">
-          <div class="cc-provider-farm-card__eyebrow">You are the owner of</div>
-          <h3 class="cc-provider-farm-card__title mb-1">
-            ${CC.escapeHtml(owned.name)}
-          </h3>
-
-          ${
-            owned?.f?.description
-              ? `
-                <p class="cc-provider-meta mb-2">
-                  ${CC.escapeHtml(owned.f.description)}
-                </p>
-              `
-              : ``
-          }
-
-          ${
-            owned?.f?.location
-              ? `
-                <p class="cc-provider-meta mb-0">
-                  Located in: ${CC.escapeHtml(owned.f.location)}
-                </p>
-              `
-              : ``
-          }
-        </div>
+      <div class="fw-semibold">
+        <h3>You are the owner of: ${CC.escapeHtml(owned.name)}</h3>
+        <p class="cc-provider-meta">${CC.escapeHtml(owned.f.description)}</p>
+        <p class="cc-provider-meta">Located in: ${CC.escapeHtml(owned.f.location)}</p>
       </div>
     `;
   }
@@ -1553,6 +1544,8 @@ wireFavoriteShopHandoff();
     const username = picked.username;
     const email = picked.email;
 
+    syncProviderVisibility();
+
     // Use a stable local key per-account
     const userKey = username || email || "anonymous";
 
@@ -1573,7 +1566,11 @@ wireFavoriteShopHandoff();
     prefillAddressModal(inferred);
 
     // Load favorites + provider info
-    await Promise.allSettled([loadFavorites(), loadProviderInfo(username)]);
+    await Promise.allSettled(loadFavorites());
+
+    if (isProviderAccount()) {
+      await loadProviderInfo(username);
+    }
 
     wireEvents(userKey, username, email);
     setPageStatus("", "success");
