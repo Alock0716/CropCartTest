@@ -1569,7 +1569,7 @@ wireFavoriteShopHandoff();
     
 
     if (isProviderAccount()) {
-       await Promise.allSettled([loadFavorites(), loadProviderInfo(username)]);
+      await Promise.allSettled([loadFavorites(), loadProviderInfo(username)]);
     }
     else await Promise.allSettled([loadFavorites()]);
 
