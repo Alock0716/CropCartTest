@@ -1565,8 +1565,6 @@
 
     setPageStatus("Loading account…", "muted");
 
-    apiUpdateName();
-
     const auth = CC.auth.getAuth?.() || null;
     const picked = pickUserFromAuth(auth);
 
