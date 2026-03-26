@@ -385,79 +385,96 @@
   }
 
   /**
-   * Push the user's saved delivery address + coordinates to the API.
+   * Sends the user's delivery address to the backend using the confirmed
+   * delivery-address profile route, then updates local cache values so
+   * the rest of the site can use the saved address immediately.
    *
-   * Uses the same best-guess multi-endpoint pattern already used on this page
-   * for profile updates.
+   * @param {Object} addressPayload - Normalized address object built after geocoding.
+   * @param {string} addressPayload.preferred_delivery_address - Full formatted address string.
+   * @param {string} addressPayload.address_line1 - Street line.
+   * @param {string} addressPayload.city - City value.
+   * @param {string} addressPayload.state - State value.
+   * @param {string} addressPayload.postal_code - Postal / ZIP code.
+   * @param {string} addressPayload.country - Country value.
+   * @param {number|null} addressPayload.lat - Latitude from geocoder.
+   * @param {number|null} addressPayload.lng - Longitude from geocoder.
+   * @returns {Promise<Object>} API response-like object.
    */
   async function apiUpdateDeliveryAddress(addressPayload) {
-    const payloadSnake = {
-      preferred_delivery_address: addressPayload.preferred_delivery_address,
-      address_line1: addressPayload.address_line1,
-      city: addressPayload.city,
-      state: addressPayload.state,
-      postal_code: addressPayload.postal_code,
-      country: addressPayload.country,
-      lat: addressPayload.lat,
-      lng: addressPayload.lng,
+    const payload = {
+      preferred_delivery_address: addressPayload.preferred_delivery_address || "",
+      address_line1: addressPayload.address_line1 || "",
+      city: addressPayload.city || "",
+      state: addressPayload.state || "",
+      postal_code: addressPayload.postal_code || "",
+      country: addressPayload.country || "US",
+      lat: addressPayload.lat ?? null,
+      lng: addressPayload.lng ?? null,
     };
 
-    const payloadCamel = {
-      preferredDeliveryAddress: addressPayload.preferred_delivery_address,
-      addressLine1: addressPayload.address_line1,
-      city: addressPayload.city,
-      state: addressPayload.state,
-      postalCode: addressPayload.postal_code,
-      country: addressPayload.country,
-      lat: addressPayload.lat,
-      lng: addressPayload.lng,
-    };
+    const res = await CC.apiRequest("/auth/profile/delivery-address/", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
 
-    const candidates = [
-      {
-        path: "/auth/profile/delivery-address/",
-        method: "PATCH",
-        json: payloadSnake,
-      },
-      {
-        path: "/auth/profile/delivery-address/",
-        method: "PATCH",
-        json: payloadCamel,
-      },
-    ];
-
-    let lastRes = null;
-
-    for (const c of candidates) {
-      const res = await CC.apiRequest(c.path, {
-        method: c.method,
-        json: c.json,
-      });
-
-      lastRes = res;
-
-      if (res.status === 401) return res;
-      if (res.status === 404) continue;
-
-      if (res.status === 405) {
-        const putRes = await CC.apiRequest(c.path, {
-          method: "PUT",
-          json: c.json,
-        });
-
-        lastRes = putRes;
-
-        if (putRes.status === 401) return putRes;
-        if (putRes.status === 404) continue;
-        if (putRes.ok) return putRes;
-
-        continue;
+    // If backend save worked, also keep the frontend cache in sync right away.
+    if (res?.ok) {
+      try {
+        localStorage.setItem(
+          "cc_saved_address_v1",
+          JSON.stringify({
+            preferred_delivery_address: payload.preferred_delivery_address,
+            address_line1: payload.address_line1,
+            city: payload.city,
+            state: payload.state,
+            postal_code: payload.postal_code,
+            country: payload.country,
+            lat: payload.lat,
+            lng: payload.lng,
+            updated_at: new Date().toISOString(),
+          }),
+        );
+      } catch {
+        // Ignore cache write failures.
       }
 
-      if (res.ok) return res;
+      try {
+        const sessionRaw = sessionStorage.getItem("cc_auth");
+        const localRaw = localStorage.getItem("cc_auth");
+        const existingRaw = sessionRaw || localRaw;
+
+        if (existingRaw) {
+          const authObj = JSON.parse(existingRaw);
+
+          const patchedAuth = {
+            ...authObj,
+            user: {
+              ...(authObj.user || {}),
+              preferred_delivery_address: payload.preferred_delivery_address,
+              address_line1: payload.address_line1,
+              city: payload.city,
+              state: payload.state,
+              postal_code: payload.postal_code,
+              country: payload.country,
+              lat: payload.lat,
+              lng: payload.lng,
+            },
+          };
+
+          const serialized = JSON.stringify(patchedAuth);
+
+          if (sessionRaw) {
+            sessionStorage.setItem("cc_auth", serialized);
+          } else {
+            localStorage.setItem("cc_auth", serialized);
+          }
+        }
+      } catch {
+        // Ignore auth cache patch failures.
+      }
     }
 
-    return lastRes || { ok: false, status: 0, data: null, raw: "No response" };
+    return res;
   }
 
   function syncAddressIntoAuthCache(addressPayload) {
