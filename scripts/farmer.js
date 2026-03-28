@@ -410,14 +410,14 @@
     const token = getAccessToken();
 
     const headers = {
-      Accept: "application/json",
+      Accept: "multipart/form-data",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
     const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
       method: "POST",
       headers,
-      credentials: "omit",
+      credentials: "include",
       body: fd,
     });
 
