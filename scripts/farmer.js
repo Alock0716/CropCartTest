@@ -417,7 +417,7 @@
     const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
       method: "POST",
       headers,
-      credentials: "include",
+      credentials: "omit",
       body: fd,
     });
 
