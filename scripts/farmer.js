@@ -369,7 +369,7 @@
     try {
       const res = await fetch(`${ROOT_BASE}/farms/`, {
         method: "GET",
-        headers: authHeaders({ Accept: "application/json" }),
+        headers: authHeaders({  Accept: ""application/json"" }),
         credentials: "include",
       });
 
