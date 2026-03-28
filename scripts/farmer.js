@@ -410,7 +410,7 @@
     const token = getAccessToken();
 
     const headers = {
-      Accept: "multipart/form-data",
+      Accept: ""application/json"",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
