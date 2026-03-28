@@ -407,8 +407,7 @@
     const fd = new FormData();
     fd.append("logo", file); // make sure this matches backend field name
 
-    // 🔑 Build headers WITHOUT Content-Type
-    const token = getAuthToken?.(); // adjust if your token getter is named differently
+    const token = getAccessToken();
 
     const headers = {
       Accept: "application/json",
