@@ -395,73 +395,71 @@
   }
 
   async function uploadFarmLogo(file) {
-    if (!requireProviderRole("Uploading a farm logo")) return;
-    if (!file) return;
+  if (!requireProviderRole("Uploading a farm logo")) return;
+  if (!file) return;
 
-    setFarmLogoStatus("Uploading logo…", "muted");
+  setFarmLogoStatus("Uploading logo…", "muted");
 
-    // optimistic preview
-    const localUrl = URL.createObjectURL(file);
-    renderFarmLogo(localUrl);
+  const localUrl = URL.createObjectURL(file);
+  renderFarmLogo(localUrl);
 
-    try {
-      const fd = new FormData();
+  try {
+    const fd = new FormData();
+    fd.append("logo", file); // make sure this matches backend field name
 
-      /**
-       * NOTE:
-       * The current API docs do NOT document a farm logo field.
-       * This frontend attempts a multipart farm update using field name "logo".
-       * If the backend uses a different field name, this request will need to match it.
-       */
-      fd.append("logo", file);
+    // 🔑 Build headers WITHOUT Content-Type
+    const token = getAuthToken?.(); // adjust if your token getter is named differently
 
-      const authtest = authHeaders({ Accept: "application/json" });
-      console.log(authtest);
-      
-      const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
-        method: "POST",
-        headers: authHeaders({ Accept: "multipart/form-data" }),
-        credentials: "include",
-        body: fd,
-      });
+    const headers = {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
 
-      const parsed = await readJsonOrText(res);
+    const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+      body: fd,
+    });
 
-      if (!parsed.ok) {
-        console.log(
-          "Farm logo upload error:",
-          parsed.status,
-          parsed.data ?? parsed.raw,
-        );
+    const parsed = await readJsonOrText(res);
 
-        setFarmLogoStatus(
-          parsed.data?.error ||
-            parsed.data?.detail ||
-            parsed.raw ||
-            `Logo upload failed (HTTP ${parsed.status})`,
-          "danger",
-        );
+    if (!parsed.ok) {
+      console.log(
+        "Farm logo upload error:",
+        parsed.status,
+        parsed.data ?? parsed.raw,
+      );
 
-        // fall back to server data if we have it
-        renderFarmLogo(ownedFarm?.logo_url || "");
-        return;
-      }
-
-      // refresh farm info after successful save
-      await loadFarmProfileTitle();
-      setFarmLogoStatus("Farm logo updated.", "success");
-    } catch (err) {
-      console.error("Farm logo upload failed:", err);
       setFarmLogoStatus(
-        "Logo upload could not be completed. The backend may not support farm logo uploads yet.",
+        parsed.data?.error ||
+          parsed.data?.detail ||
+          parsed.raw ||
+          `Logo upload failed (HTTP ${parsed.status})`,
         "danger",
       );
+
       renderFarmLogo(ownedFarm?.logo_url || "");
-    } finally {
-      URL.revokeObjectURL(localUrl);
-      if (farmLogoInput) farmLogoInput.value = "";
+      return;
     }
+
+    await loadFarmProfileTitle();
+    setFarmLogoStatus("Farm logo updated.", "success");
+
+  } catch (err) {
+    console.error("Farm logo upload failed:", err);
+
+    setFarmLogoStatus(
+      "Logo upload could not be completed. The backend may not support farm logo uploads yet.",
+      "danger",
+    );
+
+    renderFarmLogo(ownedFarm?.logo_url || "");
+  } finally {
+    URL.revokeObjectURL(localUrl);
+    if (farmLogoInput) farmLogoInput.value = "";
   }
+}
 
   async function loadInventory() {
     if (!requireProviderRole("Loading inventory")) {
