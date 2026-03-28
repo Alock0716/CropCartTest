@@ -420,7 +420,7 @@
       
       const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
         method: "POST",
-        headers: authHeaders({ Accept: "application/json" }),
+        headers: authHeaders({ Accept: "multipart/form-data" }),
         credentials: "include",
         body: fd,
       });
