@@ -415,6 +415,9 @@
        */
       fd.append("logo", file);
 
+      const authtest = authHeaders({ Accept: "application/json" });
+      console.log(authtest);
+      
       const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
         method: "POST",
         headers: authHeaders({ Accept: "application/json" }),
