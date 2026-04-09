@@ -491,7 +491,6 @@
     const res = await fetch(`${ROOT_BASE}/farmer/orders/`, {
       method: "GET",
       headers: authHeaders({ Accept: "application/json" }),
-      credentials: "include",
     });
 
     const parsed = await readJsonOrText(res);
