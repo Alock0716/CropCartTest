@@ -400,36 +400,25 @@
 
     setFarmLogoStatus("Uploading logo…", "muted");
 
-    // optimistic preview
     const localUrl = URL.createObjectURL(file);
     renderFarmLogo(localUrl);
 
     try {
       const fd = new FormData();
-
-      /**
-       * NOTE:
-       * The current API docs do NOT document a farm logo field.
-       * This frontend attempts a multipart farm update using field name "logo".
-       * If the backend uses a different field name, this request will need to match it.
-       */
       fd.append("logo", file);
 
-      const res = await fetch(`${ROOT_BASE}/farmer/farm/logo`, {
+      const res = await fetch(`${ROOT_BASE}/farmer/farm/logo/`, {
         method: "PUT",
-        headers: authHeaders({ Accept: "application/json" }),
-        credentials: "include",
+        headers: authHeaders({
+          Accept: "application/json",
+        }),
         body: fd,
       });
 
       const parsed = await readJsonOrText(res);
 
       if (!parsed.ok) {
-        console.log(
-          "Farm logo upload error:",
-          parsed.status,
-          parsed.data ?? parsed.raw,
-        );
+        console.log("Farm logo upload error:", parsed.status, parsed.data ?? parsed.raw);
 
         setFarmLogoStatus(
           parsed.data?.error ||
@@ -439,18 +428,16 @@
           "danger",
         );
 
-        // fall back to server data if we have it
         renderFarmLogo(ownedFarm?.logo_url || "");
         return;
       }
 
-      // refresh farm info after successful save
       await loadFarmProfileTitle();
       setFarmLogoStatus("Farm logo updated.", "success");
     } catch (err) {
       console.error("Farm logo upload failed:", err);
       setFarmLogoStatus(
-        "Logo upload could not be completed. The backend may not support farm logo uploads yet.",
+        `Logo upload could not be completed: ${err?.message || err}`,
         "danger",
       );
       renderFarmLogo(ownedFarm?.logo_url || "");
@@ -545,19 +532,17 @@
 
       const res = await fetch(`${ROOT_BASE}/farmer/products/`, {
         method: "POST",
-        headers: authHeaders({ Accept: "application/json" }),
-        credentials: "include",
+        headers: authHeaders({
+          Accept: "application/json",
+        }),
+        // REMOVE credentials: "include"
         body: fd,
       });
 
       const parsed = await readJsonOrText(res);
 
       if (!parsed.ok) {
-        console.log(
-          "Create product error:",
-          parsed.status,
-          parsed.data ?? parsed.raw,
-        );
+        console.log("Create product error:", parsed.status, parsed.data ?? parsed.raw);
 
         const msg =
           parsed.data?.error ||
@@ -575,7 +560,7 @@
     } catch (err) {
       console.error("Create product fetch failed:", err);
       setStatus(
-        "Product creation failed before the response could be read.",
+        `Product creation failed before the response could be read: ${err?.message || err}`,
         "danger",
       );
     } finally {
