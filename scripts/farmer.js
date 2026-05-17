@@ -408,7 +408,7 @@
       fd.append("logo", file);
 
       const res = await fetch(`${ROOT_BASE}/farmer/farm/logo/`, {
-        method: "PUT",
+        method: "POST",
         headers: authHeaders({
           Accept: "application/json",
         }),
@@ -525,7 +525,7 @@
       fd.append("price", String(payload.price || "").trim());
       fd.append("stock", String(payload.stock || "").trim());
 
-      if (payload.photo instanceof File) {
+      if (payload.photo instanceof File && payload.photo.size > 0) {
         fd.append("photo", payload.photo);
       }
 
@@ -572,16 +572,38 @@
 
     setEditStatus("Saving changes…", "muted");
 
+    const selectedPhoto = epPhoto?.files?.[0];
+    const hasNewPhoto = selectedPhoto instanceof File && selectedPhoto.size > 0;
+
+    let headers;
+    let body;
+
+    if (hasNewPhoto) {
+      const fd = new FormData();
+      fd.append("name", String(payload.name || "").trim());
+      fd.append("description", String(payload.description || "").trim());
+      fd.append("category", String(payload.category || "").trim());
+      fd.append("price", String(payload.price || "").trim());
+      fd.append("stock", String(payload.stock || "").trim());
+      fd.append("is_active", payload.is_active ? "true" : "false");
+      fd.append("photo", selectedPhoto);
+
+      headers = authHeaders({ Accept: "application/json" });
+      body = fd;
+    } else {
+      headers = authHeaders({
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      });
+      body = JSON.stringify(payload);
+    }
+
     const res = await fetch(
       `${ROOT_BASE}/farmer/products/${encodeURIComponent(productId)}/`,
       {
         method: "PATCH",
-        headers: authHeaders({
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        }),
-        credentials: "include",
-        body: JSON.stringify(payload),
+        headers,
+        body,
       },
     );
 
@@ -593,12 +615,18 @@
         parsed.status,
         parsed.data ?? parsed.raw,
       );
-      setEditStatus(`Save failed (HTTP ${parsed.status})`, "danger");
+      const msg =
+        parsed.data?.error ||
+        parsed.data?.detail ||
+        parsed.raw ||
+        `Save failed (HTTP ${parsed.status})`;
+      setEditStatus(msg, "danger");
       return;
     }
 
     setEditStatus("Saved.", "success");
     if (editModal) editModal.hide();
+    if (epPhoto) epPhoto.value = "";
     await loadInventory();
   }
 
@@ -923,11 +951,6 @@
         stock: Number(epStock?.value ?? 0),
         is_active: Boolean(epIsActive?.checked),
       };
-
-      // Photo: if you support URL upload vs file upload, adjust here.
-      // If your backend expects multipart for images, keep photo handling separate.
-      const photoVal = String(epPhoto?.value || "").trim();
-      if (photoVal) payload.photo_url = photoVal;
 
       await updateProduct(id, payload);
     });
